@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import pkg from "../../package.json" with { type: "json" };
 
 let http: HttpServer;
 let baseUrl: string;
@@ -55,6 +56,7 @@ describe("stdio server", () => {
     expect(names).toContain("gorelo_clients");
     expect(names).toContain("gorelo_tickets");
     expect(names).not.toContain("gorelo_admin");
+    expect(client.getServerVersion()).toEqual({ name: "gorelo", version: pkg.version });
 
     const res = await client.callTool({
       name: "gorelo_clients",

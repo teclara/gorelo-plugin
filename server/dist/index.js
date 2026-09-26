@@ -16927,6 +16927,39 @@ var StdioServerTransport = class {
   }
 };
 
+// package.json
+var package_default = {
+  name: "gorelo-plugin",
+  version: "0.1.0",
+  private: true,
+  type: "module",
+  engines: {
+    node: ">=20"
+  },
+  scripts: {
+    codegen: "tsx server/scripts/codegen.ts",
+    build: `esbuild server/src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=server/dist/index.js --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"`,
+    test: "vitest run",
+    typecheck: "tsc --noEmit",
+    lint: "biome check .",
+    smoke: "tsx server/scripts/smoke.ts",
+    "spec-diff": "tsx server/scripts/spec-diff.ts"
+  },
+  dependencies: {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    ajv: "^8.20.0",
+    "ajv-formats": "^3.0.1"
+  },
+  devDependencies: {
+    "@biomejs/biome": "^2.5.14",
+    "@types/node": "^26.6.3",
+    esbuild: "^0.28.2",
+    tsx: "^4.23.15",
+    typescript: "^7.0.2",
+    vitest: "^5.0.2"
+  }
+};
+
 // server/generated/operations.ts
 var SPEC_VERSION = "1.0.0";
 var OPERATIONS = [
@@ -23407,7 +23440,7 @@ Warning: audit log write failed: ${auditMessage}`;
 };
 
 // server/src/index.ts
-var VERSION = "0.1.0";
+var VERSION = package_default.version;
 function createServer(env = process.env) {
   const server = new Server(
     { name: "gorelo", version: VERSION },

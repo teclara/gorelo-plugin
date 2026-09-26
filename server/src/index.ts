@@ -3,13 +3,15 @@ import { pathToFileURL } from "node:url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import pkg from "../../package.json" with { type: "json" };
 import { OPERATIONS, SPEC_VERSION } from "../generated/operations.js";
 import { ConfigError, loadConfig } from "./config.js";
 import { GoreloClient } from "./http.js";
 import { INSTRUCTIONS } from "./instructions.js";
 import { Registry } from "./registry.js";
 
-const VERSION = "0.1.0";
+// Inlined by esbuild at build time; keep in sync with .claude-plugin/plugin.json (tested).
+const VERSION = pkg.version;
 
 export function createServer(env: Record<string, string | undefined> = process.env): Server {
   const server = new Server(
