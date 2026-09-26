@@ -131,6 +131,30 @@ describe("call", () => {
       { Id: 2, Title: "<untrusted_content>b</untrusted_content>" },
     ]);
     expect(body.next_cursor).toBe("c1");
+    expect(body.has_more).toBe(true);
+    expect(body.count).toBe(2);
+    // Metadata comes before the items so it survives even when a reader skims the top.
+    expect(Object.keys(body)).toEqual(["count", "has_more", "next_cursor", "items"]);
+    expect(res.text.indexOf('"has_more"')).toBeLessThan(res.text.indexOf('"items"'));
+  });
+
+  it("requests PageSize 200 then 100 for limit 300 and returns the cursor when more exist", async () => {
+    const rows = (n: number, from: number) => Array.from({ length: n }, (_, i) => ({ Id: from + i }));
+    const { reg, calls } = await setup("read", [ok(rows(200, 1), "c200"), ok(rows(100, 201), "c300")]);
+    const res = await reg.call("gorelo_tickets", { action: "list", params: { limit: 300 } });
+    expect(calls.map((c) => c.url)).toEqual([
+      "https://x.test/v1/tickets?PageSize=200",
+      "https://x.test/v1/tickets?Cursor=c200&PageSize=100",
+    ]);
+    const body = JSON.parse(res.text);
+    expect(body).toMatchObject({ count: 300, has_more: true, next_cursor: "c300" });
+    expect(body.items).toHaveLength(300);
+  });
+
+  it("reports has_more false with no cursor on the last page", async () => {
+    const { reg } = await setup("read", [ok([{ Id: 1 }])]);
+    const body = JSON.parse((await reg.call("gorelo_tickets", { action: "list", params: {} })).text);
+    expect(body).toEqual({ count: 1, has_more: false, items: [{ Id: 1 }] });
   });
 
   it("clamps limit to 500 and resumes from a supplied cursor", async () => {

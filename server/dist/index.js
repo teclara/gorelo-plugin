@@ -22972,7 +22972,7 @@ Rules:
 - Resolve IDs with lookups (clients.list with Query, tickets.list_statuses, billing_reference.list_work_types, organization.list_users) before any write. Never guess IDs.
 - Prefer filters (ClientIds, StatusIds, Query, date ranges) and a small limit over large pulls.
 - Before any write, show the user exactly what will change and get agreement. For gorelo_admin actions, always get explicit confirmation naming the record.
-- List actions return {items, count, next_cursor}. Pass next_cursor back as params.cursor to continue.
+- List actions return {count, has_more, next_cursor, items}. Pass next_cursor back as params.cursor to continue. When has_more is true, say the results are partial; if a result reports omitted items, rerun with a smaller limit.
 - Filter params such as StatusIds take comma-separated ids ("1,2").
 - A 403 means the API key lacks that scope; tell the user which action and suggest updating the key's scopes in Gorelo.`;
 
@@ -23023,26 +23023,26 @@ var UNTRUSTED_KEYS = /* @__PURE__ */ new Set([
   "Reason",
   "StatusReason"
 ]);
-async function collectPages(fetchPage, limit) {
+async function collectPages(fetchPage, limit, maxPageSize = PAGE_SIZE) {
   const items = [];
   const notifications = [];
   const seenCursors = /* @__PURE__ */ new Set();
   let cursor;
   while (true) {
-    const page = await fetchPage(cursor);
+    const want = Math.min(maxPageSize, limit - items.length);
+    const page = await fetchPage(cursor, want);
     notifications.push(...page.notifications);
     const batch = Array.isArray(page.data) ? page.data : page.data == null ? [] : [page.data];
-    items.push(...batch);
     const next = page.hasMore ? page.nextCursor : void 0;
-    if (items.length >= limit) {
-      const exact = items.length === limit;
-      return {
-        items: items.slice(0, limit),
-        ...exact && next ? { nextCursor: next } : {},
-        notifications
-      };
+    if (batch.length > want) {
+      items.push(...batch.slice(0, want));
+      return { items, hasMore: true, notifications };
     }
-    if (!next || batch.length === 0 || seenCursors.has(next)) return { items, notifications };
+    items.push(...batch);
+    if (!next) return { items, hasMore: false, notifications };
+    if (items.length >= limit) return { items, hasMore: true, nextCursor: next, notifications };
+    if (batch.length === 0) return { items, hasMore: true, nextCursor: next, notifications };
+    if (seenCursors.has(next)) return { items, hasMore: true, notifications };
     seenCursors.add(next);
     cursor = next;
   }
@@ -23059,11 +23059,53 @@ function markUntrusted(value, key) {
   }
   return value;
 }
+var LIST_NOTE = "Result truncated to fit; narrow with filters or page with next_cursor.";
+var OPEN_TAG = "<untrusted_content>";
+var CLOSE_TAG = "</untrusted_content>";
+function isListResult(payload) {
+  return typeof payload === "object" && payload !== null && !Array.isArray(payload) && Array.isArray(payload.items) && "count" in payload;
+}
+function renderList(payload, keep) {
+  const { items, count: _count, next_cursor: _cursor, has_more: _more, note: prior, ...rest } = payload;
+  const omitted = items.length - keep;
+  if (omitted === 0) return JSON.stringify(payload, null, 2);
+  return JSON.stringify(
+    {
+      count: keep,
+      // Dropped rows sit between the last shown item and the API cursor, so the cursor is withheld.
+      has_more: true,
+      omitted,
+      note: `${prior ? `${String(prior)} ` : ""}${LIST_NOTE} ${omitted} item(s) were dropped, so next_cursor is withheld (resuming from it would skip them). Rerun with limit ${Math.max(1, keep)} or less and page with next_cursor from that call.`,
+      ...rest,
+      items: items.slice(0, keep)
+    },
+    null,
+    2
+  );
+}
+function truncateText(text, maxChars) {
+  let cut = text.slice(0, maxChars);
+  const open2 = cut.lastIndexOf(OPEN_TAG);
+  if (open2 > cut.lastIndexOf(CLOSE_TAG)) cut = cut.slice(0, open2);
+  return `${cut}
+\u2026 [truncated ${text.length - cut.length} chars. Narrow the request with filters or a smaller limit.]`;
+}
 function renderResult(payload, maxChars = MAX_RESULT_CHARS) {
   const text = JSON.stringify(payload, null, 2);
   if (text.length <= maxChars) return text;
-  return `${text.slice(0, maxChars)}
-\u2026 [truncated ${text.length - maxChars} chars. Narrow the request with filters or a smaller limit.]`;
+  if (isListResult(payload)) {
+    let lo = 0;
+    let hi = payload.items.length - 1;
+    if (renderList(payload, 0).length <= maxChars) {
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (renderList(payload, mid).length <= maxChars) lo = mid;
+        else hi = mid - 1;
+      }
+      return renderList(payload, lo);
+    }
+  }
+  return truncateText(text, maxChars);
 }
 
 // server/src/types.ts
@@ -23259,16 +23301,18 @@ Warning: audit log write failed: ${auditMessage}`;
     const finalBody = op.forceBody ? { ...stripForcedKeys(body, op.forceBody) ?? {}, ...op.forceBody } : body;
     if (op.paginated) {
       const max = Math.min(Math.max(limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
-      const pageSize = Math.min(PAGE_SIZE, max);
       const out = await collectPages(
-        (next) => client.json(op, rest, finalBody, next ?? cursor, pageSize),
-        max
+        (next, pageSize) => client.json(op, rest, finalBody, next ?? cursor, pageSize),
+        max,
+        PAGE_SIZE
       );
       return {
-        items: out.items,
         count: out.items.length,
+        has_more: out.hasMore,
         ...out.nextCursor ? { next_cursor: out.nextCursor } : {},
-        ...out.notifications.length ? { notifications: out.notifications } : {}
+        ...out.hasMore && !out.nextCursor ? { note: "More rows exist but Gorelo returned no usable cursor; narrow with filters." } : {},
+        ...out.notifications.length ? { notifications: out.notifications } : {},
+        items: out.items
       };
     }
     const page = await client.json(op, rest, finalBody);

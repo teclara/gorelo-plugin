@@ -256,16 +256,21 @@ export class Registry {
 
     if (op.paginated) {
       const max = Math.min(Math.max(limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
-      const pageSize = Math.min(PAGE_SIZE, max);
       const out = await collectPages(
-        (next) => client.json(op, rest, finalBody, next ?? cursor, pageSize),
+        (next, pageSize) => client.json(op, rest, finalBody, next ?? cursor, pageSize),
         max,
+        PAGE_SIZE,
       );
+      // Metadata before items, so it is read (and survives truncation) ahead of the rows.
       return {
-        items: out.items,
         count: out.items.length,
+        has_more: out.hasMore,
         ...(out.nextCursor ? { next_cursor: out.nextCursor } : {}),
+        ...(out.hasMore && !out.nextCursor
+          ? { note: "More rows exist but Gorelo returned no usable cursor; narrow with filters." }
+          : {}),
         ...(out.notifications.length ? { notifications: out.notifications } : {}),
+        items: out.items,
       };
     }
 
