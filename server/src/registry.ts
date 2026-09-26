@@ -56,6 +56,31 @@ function paramsSchema(op: OperationDef): JsonSchema {
   return { type: "object", properties, required, additionalProperties: false };
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Forced-body keys (e.g. StatusId on draft invoice create) that the caller supplied, compared
+ * case-insensitively since the underlying API binds body fields case-insensitively. Returns []
+ * (no conflict) when body isn't a plain object — ajv is left to reject that shape on its own.
+ */
+function conflictingForcedKeys(body: unknown, forceBody: Record<string, unknown> | undefined): string[] {
+  if (!forceBody || !isPlainObject(body)) return [];
+  const bodyKeysLower = new Set(Object.keys(body).map((k) => k.toLowerCase()));
+  return Object.keys(forceBody).filter((k) => bodyKeysLower.has(k.toLowerCase()));
+}
+
+/** Drops any body key that case-folds to a forced key before forceBody is merged in. */
+function stripForcedKeys(
+  body: Record<string, unknown> | undefined,
+  forceBody: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!forceBody || !body) return body;
+  const forcedLower = new Set(Object.keys(forceBody).map((k) => k.toLowerCase()));
+  return Object.fromEntries(Object.entries(body).filter(([k]) => !forcedLower.has(k.toLowerCase())));
+}
+
 export class Registry {
   private readonly byTool = new Map<string, Map<string, OperationDef>>();
   private readonly allByTool = new Map<string, Map<string, OperationDef>>();
@@ -145,7 +170,7 @@ export class Registry {
     }
 
     const params = args.params ?? {};
-    const forced = Object.keys(op.forceBody ?? {}).filter((k) => k in ((params.body as object) ?? {}));
+    const forced = conflictingForcedKeys(params.body, op.forceBody);
     if (forced.length) {
       return {
         text: `${forced.join(", ")} is set by the server for ${tool}.${action} and cannot be supplied.${tool === "gorelo_invoices" ? " Use gorelo_admin.invoices_create (full tier) to create an approved invoice." : ""}`,
@@ -166,16 +191,33 @@ export class Registry {
     }
 
     const isWrite = op.method !== "GET";
+    let result: unknown;
+    let execError: string | undefined;
     try {
-      const result = await this.execute(op, params);
-      if (isWrite) await appendAudit(this.deps.dataDir, { tool, action, params, status: 200 });
-      return { text: renderResult(markUntrusted(result)), isError: false };
+      result = await this.execute(op, params);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (isWrite)
-        await appendAudit(this.deps.dataDir, { tool, action, params, status: "error", error: message });
-      return { text: message, isError: true };
+      execError = err instanceof Error ? err.message : String(err);
     }
+
+    // Audit failures must never mask (or duplicate the report of) a write that already happened,
+    // and must never make call() reject — they're reported as a trailing warning instead.
+    let auditWarning = "";
+    if (isWrite) {
+      try {
+        await appendAudit(
+          this.deps.dataDir,
+          execError === undefined
+            ? { tool, action, params, status: 200 }
+            : { tool, action, params, status: "error", error: execError },
+        );
+      } catch (auditErr) {
+        const auditMessage = auditErr instanceof Error ? auditErr.message : String(auditErr);
+        auditWarning = `\n\nWarning: audit log write failed: ${auditMessage}`;
+      }
+    }
+
+    if (execError !== undefined) return { text: execError + auditWarning, isError: true };
+    return { text: renderResult(markUntrusted(result)) + auditWarning, isError: false };
   }
 
   private async execute(op: OperationDef, params: Record<string, unknown>): Promise<unknown> {
@@ -208,7 +250,9 @@ export class Registry {
       return (await client.multipart(op, form)).data;
     }
 
-    const finalBody = op.forceBody ? { ...(body ?? {}), ...op.forceBody } : body;
+    const finalBody = op.forceBody
+      ? { ...(stripForcedKeys(body, op.forceBody) ?? {}), ...op.forceBody }
+      : body;
 
     if (op.paginated) {
       const max = Math.min(Math.max(limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);

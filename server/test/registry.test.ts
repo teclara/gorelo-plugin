@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -203,5 +203,55 @@ describe("call", () => {
     expect(res).toMatchObject({ isError: true });
     expect(res.text).toMatch(/scope/);
     expect(await readFile(join(dataDir, "audit.jsonl"), "utf8")).toContain('"status":"error"');
+  });
+
+  it("returns the write result with a warning (not a rejection) when the audit log write fails, and makes no second HTTP call", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "gorelo-reg-"));
+    const dataDir = join(dir, "not-a-dir");
+    await writeFile(dataDir, "this is a file, not a directory, so appendAudit's mkdir will throw");
+    const calls: { url: string; init: RequestInit }[] = [];
+    const client = new GoreloClient({
+      apiKey: "k",
+      baseUrl: "https://x.test",
+      fetchImpl: async (url, init) => {
+        calls.push({ url, init });
+        return ok({ Id: 7 });
+      },
+      sleep: async () => {},
+    });
+    const reg = new Registry(ops, "write", { client, dataDir });
+    const res = await reg.call("gorelo_tickets", {
+      action: "create",
+      params: { body: { Title: "x", ClientId: 1 } },
+    });
+    expect(res.isError).toBe(false);
+    expect(res.text).toContain('"Id": 7');
+    expect(res.text).toMatch(/Warning: audit log write failed/);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("rejects a caller-supplied forced key regardless of case, before any HTTP call", async () => {
+    const { reg, calls } = await setup("write");
+    const lower = await reg.call("gorelo_invoices", {
+      action: "create",
+      params: { body: { ClientId: 3, LineItems: [{ Name: "x" }], statusId: 5 } },
+    });
+    expect(lower.isError).toBe(true);
+    expect(lower.text).toMatch(/StatusId/i);
+    const upper = await reg.call("gorelo_invoices", {
+      action: "create",
+      params: { body: { ClientId: 3, LineItems: [{ Name: "x" }], STATUSID: 5 } },
+    });
+    expect(upper.isError).toBe(true);
+    expect(upper.text).toMatch(/StatusId/i);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("rejects a non-object body naming the field, without crashing or making an HTTP call", async () => {
+    const { reg, calls } = await setup("write");
+    const res = await reg.call("gorelo_invoices", { action: "create", params: { body: "x" } });
+    expect(res.isError).toBe(true);
+    expect(res.text).toMatch(/body/);
+    expect(calls).toHaveLength(0);
   });
 });
