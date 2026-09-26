@@ -1,0 +1,60 @@
+# Gorelo plugin for Claude Code
+
+Work with your [Gorelo](https://www.gorelo.io) PSA/RMM tenant from Claude Code: tickets, clients, contacts, assets, projects, time, uptime checks and billing.
+
+> Community project, not affiliated with or endorsed by Gorelo.
+
+## Install
+
+```
+/plugin marketplace add teclara/gorelo-plugin
+/plugin install gorelo-plugin@teclara
+```
+
+Requires Node 20+. When you enable the plugin, Claude Code asks for:
+
+| Setting | Values |
+|---|---|
+| Gorelo API key | Stored in your OS keychain, never in settings files |
+| Region | `usw` (US) or `aue` (Australia) |
+| Access tier | `read` (default), `write`, `full` |
+
+## Access tiers
+
+| Tier | What Claude can do |
+|---|---|
+| `read` | Look up anything. Cannot change anything. |
+| `write` | Also: create/update tickets, projects, tasks, comments, clients, contacts, time entries, uptime checks (incl. maintenance), upload attachments, post alerts, create **draft** invoices |
+| `full` | Also: the `gorelo_admin` tool: deletes, approving/voiding invoices, catalogue item changes |
+
+**Scope your API key to match the tier.** The key is the real limit: a read-only key cannot write even if the plugin is set to `full`.
+
+`gorelo_admin` is a separate tool so you can auto-allow everyday tools while every destructive call still asks you first. **If you run Claude Code with bypass permissions, that prompt is skipped.**
+
+Every non-read call is logged locally to `~/.claude/plugins/data/<plugin-id>/audit.jsonl`.
+
+## Skills
+
+| Skill | Use it for |
+|---|---|
+| `gorelo-status` | Is it connected? What can the key reach? |
+| `gorelo-triage` | Morning check: tickets, offline agents, down uptime checks |
+| `gorelo-client-overview` | One-page client briefing before a call |
+| `gorelo-log-time` | "Log 1.5h on the Acme printer ticket" |
+| `gorelo-uptime-maintenance` | Maintenance windows for uptime checks |
+| `gorelo-invoice-draft` | Draft (never approve) a manual invoice |
+
+## Development
+
+```
+npm install
+npm run codegen   # regenerate server/generated from Gorelo's live spec
+npm test
+npm run build     # rebuild server/dist/index.js (committed)
+```
+
+Tools are generated from Gorelo's public OpenAPI spec. A weekly workflow opens a PR when Gorelo adds or changes endpoints. Naming and tier overrides live in `server/tool-map.ts`.
+
+## License
+
+MIT
