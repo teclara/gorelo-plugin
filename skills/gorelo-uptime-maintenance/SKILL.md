@@ -13,5 +13,5 @@ description: Put Gorelo uptime checks into or out of maintenance mode for a time
    - `Reason`
 3. **Confirm.** Show the checks, the window in local time and in UTC, and the reason. Wait for a yes.
 4. **Apply.** Call `gorelo_uptime.update` for each check with `id` and a body containing only `MaintenanceMode`.
-5. **To end maintenance early,** call `gorelo_uptime.update` with `MaintenanceMode: {"Enabled": false}`.
+5. **To end maintenance early,** show which checks will leave maintenance mode and wait for a yes. Then call `gorelo_uptime.update` for each with `id` and a body containing only `MaintenanceMode: {"Enabled": false}`.
 6. **Verify.** Call `gorelo_uptime.get` on one of the checks and confirm that `MaintenanceMode` matches.

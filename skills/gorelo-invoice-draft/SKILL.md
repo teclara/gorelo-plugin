@@ -7,7 +7,7 @@ description: Draft a manual Gorelo invoice for a client and period from billable
 
 1. **Client and period.** Resolve the client with `gorelo_clients.list` (`Query`). Confirm the period, for example "September 2026".
 2. **Gather the inputs:**
-   - `gorelo_time_entries.list` with `ClientIds`, `StartedSince` and `StartedBefore`. Keep entries whose `BillableStatus` is billable.
+   - `gorelo_time_entries.list` with `ClientIds`, `StartedSince` and `StartedBefore`. Keep entries whose `BillableStatus` (an `{Id, Name}` object on each returned entry) marks them billable.
    - `gorelo_invoices.list` with `ClientIds` and invoice dates covering the period, to see what has already been invoiced.
    - `gorelo_contracts.list` for the client, and `gorelo_contracts.get` for the active ones. Contract-generated invoices already cover their service lines.
    - `gorelo_items.list` for catalogue prices, and `gorelo_billing_reference.list_taxes` for tax IDs.
