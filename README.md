@@ -19,6 +19,8 @@ Requires Node 20+. When you enable the plugin, Claude Code asks for:
 | Region | `usw` (US) or `aue` (Australia) |
 | Access tier | `read` (default), `write`, `full` |
 
+**No Gorelo tools until the API key is set.** Claude Code won't start the plugin's MCP server while the API key is empty, so the skills show up but none of the `gorelo_*` tools do. If you skipped the prompt, run `/plugin`, open gorelo-plugin, choose configure, enter the key, and then check `/mcp` shows `gorelo` as connected.
+
 ## Access tiers
 
 | Tier | What Claude can do |

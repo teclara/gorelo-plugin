@@ -3,7 +3,10 @@
   "displayName": "Gorelo",
   "version": "0.1.0",
   "description": "Work with your Gorelo PSA/RMM tenant from Claude: tickets, clients, assets, projects, time, uptime and billing. Community project, not affiliated with or endorsed by Gorelo.",
-  "author": { "name": "Teclara Technologies", "url": "https://teclara.tech" },
+  "author": {
+    "name": "Teclara Technologies",
+    "url": "https://teclara.tech"
+  },
   "repository": "https://github.com/teclara/gorelo-plugin",
   "license": "MIT",
   "keywords": ["gorelo", "msp", "psa", "rmm"],
@@ -28,6 +31,18 @@
       "description": "read: look only. write: tickets, comments, time, uptime, draft invoices. full: also deletes, approved invoices and catalogue items.",
       "options": ["read", "write", "full"],
       "default": "read"
+    }
+  },
+  "mcpServers": {
+    "gorelo": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/dist/index.js"],
+      "env": {
+        "GORELO_API_KEY": "${user_config.api_key}",
+        "GORELO_REGION": "${user_config.region}",
+        "GORELO_ACCESS_TIER": "${user_config.access_tier}",
+        "GORELO_DATA_DIR": "${CLAUDE_PLUGIN_DATA}"
+      }
     }
   }
 }
