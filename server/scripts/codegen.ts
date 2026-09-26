@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { emitOperations, MAX_TOOL_SCHEMA_CHARS, sizeReport } from "./codegen/emit.js";
+import { emitOperations, MAX_TOOL_SCHEMA_CHARS, oversizedTools, sizeReport } from "./codegen/emit.js";
 import { type OpenApiSpec, planOperations } from "./codegen/plan.js";
 
 const DEFAULT_SPEC = "https://api.usw.gorelo.io/swagger/v1.0/swagger.json";
@@ -28,9 +28,9 @@ const ops = planOperations(spec);
 console.log(`Planned ${ops.length} actions from ${Object.keys(spec.paths).length} paths (${source})`);
 const report = sizeReport(ops);
 for (const row of report) console.log(`  ${row.tool.padEnd(28)} ${row.chars.toLocaleString()} chars`);
-const tooBig = report.filter((r) => r.chars > MAX_TOOL_SCHEMA_CHARS);
+const tooBig = oversizedTools(report, MAX_TOOL_SCHEMA_CHARS);
 if (tooBig.length) {
-  console.error(`Tool schema over ${MAX_TOOL_SCHEMA_CHARS} chars: ${tooBig.map((r) => r.tool).join(", ")}`);
+  console.error(`Tool schema over ${MAX_TOOL_SCHEMA_CHARS} chars: ${tooBig.join(", ")}`);
   process.exit(1);
 }
 

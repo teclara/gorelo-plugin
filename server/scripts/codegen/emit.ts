@@ -27,3 +27,10 @@ export function sizeReport(ops: OperationDef[]): { tool: string; chars: number }
   }
   return [...byTool].map(([tool, chars]) => ({ tool, chars })).sort((a, b) => b.chars - a.chars);
 }
+
+export function oversizedTools(
+  report: { tool: string; chars: number }[],
+  max: number = MAX_TOOL_SCHEMA_CHARS,
+): string[] {
+  return report.filter((r) => r.chars > max).map((r) => r.tool);
+}

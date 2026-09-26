@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emitOperations, sizeReport } from "../scripts/codegen/emit.js";
+import { emitOperations, oversizedTools, sizeReport } from "../scripts/codegen/emit.js";
 import { planOperations } from "../scripts/codegen/plan.js";
 import spec from "./fixtures/mini-spec.json" with { type: "json" };
 
@@ -29,5 +29,28 @@ describe("sizeReport", () => {
     const rows = sizeReport(ops);
     expect(rows.map((r) => r.tool)).toContain("gorelo_admin");
     expect(rows[0]!.chars).toBeGreaterThanOrEqual(rows[rows.length - 1]!.chars);
+  });
+});
+
+describe("oversizedTools", () => {
+  it("returns tools strictly over the limit", () => {
+    const report = [
+      { tool: "a", chars: 100 },
+      { tool: "b", chars: 50 },
+    ];
+    expect(oversizedTools(report, 60)).toEqual(["a"]);
+  });
+
+  it("does not return a tool exactly at the limit", () => {
+    const report = [{ tool: "a", chars: 60 }];
+    expect(oversizedTools(report, 60)).toEqual([]);
+  });
+
+  it("is empty when all tools are under the limit", () => {
+    const report = [
+      { tool: "a", chars: 10 },
+      { tool: "b", chars: 20 },
+    ];
+    expect(oversizedTools(report, 60)).toEqual([]);
   });
 });
