@@ -31,6 +31,13 @@ Requires Node 20+. When you enable the plugin, Claude Code asks for:
 
 `gorelo_admin` is a separate tool so you can auto-allow everyday tools while every destructive call still asks you first. **If you run Claude Code with bypass permissions, that prompt is skipped.**
 
+Keep these on "ask" rather than auto-allowed, even in the `write` tier:
+
+- `gorelo_attachments`: it reads a file from your disk and sends it to Gorelo.
+- Anything that emails people: public ticket or task comments (`create_comments`) and side conversations or approvals (`create_conversations_*`) on `gorelo_tickets` and `gorelo_project_tasks`.
+
+Ticket text is written by end users and is untrusted. A prompt injection in a ticket could ask Claude to attach a local file or email someone, and the permission prompt is your chance to catch it. The server also refuses to upload hidden (dot) files, anything inside a dot-directory such as `~/.ssh`, non-regular files, and files over 25 MB.
+
 Every non-read call is logged locally to `~/.claude/plugins/data/<plugin-id>/audit.jsonl`.
 
 ## Skills

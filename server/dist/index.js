@@ -2984,7 +2984,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve.call(this, root, ref);
+      let _sch = resolve2.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3011,7 +3011,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve(root, ref) {
+    function resolve2(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3841,7 +3841,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve(baseURI, relativeURI, options) {
+    function resolve2(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -4210,7 +4210,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve,
+      resolve: resolve2,
       resolveComponent,
       equal,
       serialize,
@@ -10517,7 +10517,7 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve) {
+function isRecursive(inst, stack, resolve2) {
   const cached2 = recursive.get(inst);
   if (cached2 !== void 0)
     return cached2 ? PROVEN : NONE;
@@ -10527,7 +10527,7 @@ function isRecursive(inst, stack, resolve) {
   let result = NONE;
   const check = (child) => {
     if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve);
+      const answer = isRecursive(child, stack, resolve2);
       if (answer > result)
         result = answer;
     }
@@ -10538,7 +10538,7 @@ function isRecursive(inst, stack, resolve) {
       const desc = Object.getOwnPropertyDescriptor(sh, key);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve) : NONE;
+      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve2) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -10602,7 +10602,7 @@ function isRecursive(inst, stack, resolve) {
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
-      const inner = def._cachedInner ?? (resolve ? inst._zod.innerType : void 0);
+      const inner = def._cachedInner ?? (resolve2 ? inst._zod.innerType : void 0);
       merge2(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
@@ -15679,7 +15679,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -15696,7 +15696,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -15774,7 +15774,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve(parseResult.data);
+            resolve2(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -16035,12 +16035,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve, interval);
+      const timeoutId = setTimeout(resolve2, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -16916,12 +16916,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve) => {
+    return new Promise((resolve2) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve();
+        resolve2();
       } else {
-        this._stdout.once("drain", resolve);
+        this._stdout.once("drain", resolve2);
       }
     });
   }
@@ -22979,8 +22979,9 @@ Rules:
 // server/src/registry.ts
 var import_ajv2 = __toESM(require_ajv(), 1);
 var import_ajv_formats2 = __toESM(require_dist(), 1);
-import { mkdir as mkdir2, readFile, writeFile } from "node:fs/promises";
-import { basename, join as join3 } from "node:path";
+import { mkdir as mkdir2, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { homedir as homedir2 } from "node:os";
+import { basename, join as join3, resolve, sep } from "node:path";
 
 // server/src/audit.ts
 import { appendFile, mkdir } from "node:fs/promises";
@@ -23138,7 +23139,10 @@ function paramsSchema(op) {
   if (op.body?.contentType === "multipart/form-data") {
     const props = { ...op.body.schema.properties ?? {} };
     delete props.file;
-    properties.file_path = { type: "string", description: "Absolute path of the local file to upload." };
+    properties.file_path = {
+      type: "string",
+      description: "Absolute path of the local file to upload. Max 25 MB; hidden (dot) files and anything inside a dot-directory are refused."
+    };
     properties.body = { type: "object", properties: props, additionalProperties: false };
     required2.push("file_path");
   } else if (op.body) {
@@ -23159,6 +23163,33 @@ function stripForcedKeys(body, forceBody) {
   if (!forceBody || !body) return body;
   const forcedLower = new Set(Object.keys(forceBody).map((k) => k.toLowerCase()));
   return Object.fromEntries(Object.entries(body).filter(([k]) => !forcedLower.has(k.toLowerCase())));
+}
+var MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+async function checkUploadPath(filePath) {
+  const expanded = filePath === "~" || filePath.startsWith("~/") ? join3(homedir2(), filePath.slice(1)) : filePath;
+  const given = resolve(expanded);
+  let real;
+  try {
+    real = await realpath(given);
+  } catch {
+    return { error: `Cannot upload ${given}: the file does not exist or cannot be read.` };
+  }
+  for (const candidate of [given, real]) {
+    const hidden = candidate.split(sep).find((segment) => segment.startsWith("."));
+    if (hidden) {
+      return {
+        error: `Refusing to upload ${given}: "${hidden}" is a hidden (dot) file or directory, which often holds secrets such as SSH keys or .env files. Copy the file somewhere visible first if the user really wants it attached.`
+      };
+    }
+  }
+  const info = await stat(real);
+  if (!info.isFile()) return { error: `Refusing to upload ${given}: it is not a regular file.` };
+  if (info.size > MAX_UPLOAD_BYTES) {
+    return {
+      error: `Refusing to upload ${given}: it is ${(info.size / 1024 / 1024).toFixed(1)} MB, over the 25 MB limit.`
+    };
+  }
+  return { path: real };
 }
 var Registry = class {
   constructor(ops, tier, deps) {
@@ -23255,11 +23286,17 @@ var Registry = class {
       ).join("; ");
       return { text: `Invalid params for ${tool}.${action}: ${detail}`, isError: true };
     }
+    let uploadPath;
+    if (op.body?.contentType === "multipart/form-data") {
+      const checked = await checkUploadPath(String(params.file_path));
+      if ("error" in checked) return { text: checked.error, isError: true };
+      uploadPath = checked.path;
+    }
     const isWrite = op.method !== "GET";
     let result;
     let execError;
     try {
-      result = await this.execute(op, params);
+      result = await this.execute(op, params, uploadPath);
     } catch (err) {
       execError = err instanceof Error ? err.message : String(err);
     }
@@ -23280,7 +23317,7 @@ Warning: audit log write failed: ${auditMessage}`;
     if (execError !== void 0) return { text: execError + auditWarning, isError: true };
     return { text: renderResult(markUntrusted(result)) + auditWarning, isError: false };
   }
-  async execute(op, params) {
+  async execute(op, params, uploadPath) {
     const { client, dataDir } = this.deps;
     const { body, limit, cursor, file_path, ...rest } = params;
     if (op.response === "binary") {
@@ -23298,7 +23335,7 @@ Warning: audit log write failed: ${auditMessage}`;
     if (op.body?.contentType === "multipart/form-data") {
       const form = new FormData();
       for (const [k, v] of Object.entries(body ?? {})) form.set(k, String(v));
-      const data = await readFile(String(file_path));
+      const data = await readFile(uploadPath ?? String(file_path));
       form.set("file", new Blob([data]), basename(String(file_path)));
       return (await client.multipart(op, form)).data;
     }

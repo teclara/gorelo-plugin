@@ -1,5 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, join, resolve, sep } from "node:path";
 import { Ajv, type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
 import { appendAudit } from "./audit.js";
@@ -46,7 +47,11 @@ function paramsSchema(op: OperationDef): JsonSchema {
   if (op.body?.contentType === "multipart/form-data") {
     const props = { ...((op.body.schema.properties as Record<string, JsonSchema>) ?? {}) };
     delete props.file;
-    properties.file_path = { type: "string", description: "Absolute path of the local file to upload." };
+    properties.file_path = {
+      type: "string",
+      description:
+        "Absolute path of the local file to upload. Max 25 MB; hidden (dot) files and anything inside a dot-directory are refused.",
+    };
     properties.body = { type: "object", properties: props, additionalProperties: false };
     required.push("file_path");
   } else if (op.body) {
@@ -79,6 +84,41 @@ function stripForcedKeys(
   if (!forceBody || !body) return body;
   const forcedLower = new Set(Object.keys(forceBody).map((k) => k.toLowerCase()));
   return Object.fromEntries(Object.entries(body).filter(([k]) => !forcedLower.has(k.toLowerCase())));
+}
+
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Resolves an upload path and refuses anything that looks like a secret or isn't a plain file.
+ * Ticket text is untrusted, so a prompt-injected "attach ~/.ssh/id_rsa" must not work. Checks
+ * both the given path and its symlink-resolved target. Returns the real path or an error message.
+ */
+export async function checkUploadPath(filePath: string): Promise<{ path: string } | { error: string }> {
+  const expanded =
+    filePath === "~" || filePath.startsWith("~/") ? join(homedir(), filePath.slice(1)) : filePath;
+  const given = resolve(expanded);
+  let real: string;
+  try {
+    real = await realpath(given);
+  } catch {
+    return { error: `Cannot upload ${given}: the file does not exist or cannot be read.` };
+  }
+  for (const candidate of [given, real]) {
+    const hidden = candidate.split(sep).find((segment) => segment.startsWith("."));
+    if (hidden) {
+      return {
+        error: `Refusing to upload ${given}: "${hidden}" is a hidden (dot) file or directory, which often holds secrets such as SSH keys or .env files. Copy the file somewhere visible first if the user really wants it attached.`,
+      };
+    }
+  }
+  const info = await stat(real);
+  if (!info.isFile()) return { error: `Refusing to upload ${given}: it is not a regular file.` };
+  if (info.size > MAX_UPLOAD_BYTES) {
+    return {
+      error: `Refusing to upload ${given}: it is ${(info.size / 1024 / 1024).toFixed(1)} MB, over the 25 MB limit.`,
+    };
+  }
+  return { path: real };
 }
 
 export class Registry {
@@ -190,11 +230,18 @@ export class Registry {
       return { text: `Invalid params for ${tool}.${action}: ${detail}`, isError: true };
     }
 
+    let uploadPath: string | undefined;
+    if (op.body?.contentType === "multipart/form-data") {
+      const checked = await checkUploadPath(String(params.file_path));
+      if ("error" in checked) return { text: checked.error, isError: true };
+      uploadPath = checked.path;
+    }
+
     const isWrite = op.method !== "GET";
     let result: unknown;
     let execError: string | undefined;
     try {
-      result = await this.execute(op, params);
+      result = await this.execute(op, params, uploadPath);
     } catch (err) {
       execError = err instanceof Error ? err.message : String(err);
     }
@@ -220,7 +267,11 @@ export class Registry {
     return { text: renderResult(markUntrusted(result)) + auditWarning, isError: false };
   }
 
-  private async execute(op: OperationDef, params: Record<string, unknown>): Promise<unknown> {
+  private async execute(
+    op: OperationDef,
+    params: Record<string, unknown>,
+    uploadPath?: string,
+  ): Promise<unknown> {
     const { client, dataDir } = this.deps;
     const { body, limit, cursor, file_path, ...rest } = params as {
       body?: Record<string, unknown>;
@@ -245,7 +296,7 @@ export class Registry {
     if (op.body?.contentType === "multipart/form-data") {
       const form = new FormData();
       for (const [k, v] of Object.entries(body ?? {})) form.set(k, String(v));
-      const data = await readFile(String(file_path));
+      const data = await readFile(uploadPath ?? String(file_path));
       form.set("file", new Blob([data]), basename(String(file_path)));
       return (await client.multipart(op, form)).data;
     }

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, symlink, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -216,6 +216,68 @@ describe("call", () => {
     const form = calls[0]!.init.body as FormData;
     expect(form.get("itemType")).toBe("ticket");
     expect((form.get("file") as File).name).toBe("a.txt");
+    // The audit entry records which local file was sent.
+    const audit = JSON.parse((await readFile(join(dataDir, "audit.jsonl"), "utf8")).trim());
+    expect(audit).toMatchObject({ tool: "gorelo_attachments", action: "upload", status: 200 });
+    expect(audit.params.file_path).toBe(file);
+  });
+
+  describe("upload path checks", () => {
+    const upload = (file_path: string) => ({
+      action: "upload",
+      params: { file_path, body: { itemType: "ticket", itemId: "00000000-0000-0000-0000-000000000001" } },
+    });
+
+    it("rejects files inside a dot-directory (like ~/.ssh) without HTTP", async () => {
+      const { reg, calls, dataDir } = await setup("write");
+      await mkdir(join(dataDir, ".secret"));
+      await writeFile(join(dataDir, ".secret", "file"), "private key");
+      const res = await reg.call("gorelo_attachments", upload(join(dataDir, ".secret", "file")));
+      expect(res.isError).toBe(true);
+      expect(res.text).toMatch(/\.secret/);
+      expect(res.text).toMatch(/hidden|dot/i);
+      expect(calls).toHaveLength(0);
+    });
+
+    it("rejects dotfiles and symlinks that resolve into a dot-directory", async () => {
+      const { reg, calls, dataDir } = await setup("write");
+      await writeFile(join(dataDir, ".env"), "SECRET=1");
+      expect((await reg.call("gorelo_attachments", upload(join(dataDir, ".env")))).isError).toBe(true);
+      await mkdir(join(dataDir, ".secret"));
+      await writeFile(join(dataDir, ".secret", "file"), "private key");
+      await symlink(join(dataDir, ".secret", "file"), join(dataDir, "innocent.txt"));
+      const res = await reg.call("gorelo_attachments", upload(join(dataDir, "innocent.txt")));
+      expect(res.isError).toBe(true);
+      expect(calls).toHaveLength(0);
+    });
+
+    it("rejects a directory without HTTP", async () => {
+      const { reg, calls, dataDir } = await setup("write");
+      await mkdir(join(dataDir, "folder"));
+      const res = await reg.call("gorelo_attachments", upload(join(dataDir, "folder")));
+      expect(res.isError).toBe(true);
+      expect(res.text).toMatch(/not a regular file/);
+      expect(calls).toHaveLength(0);
+    });
+
+    it("rejects a file larger than 25 MB without HTTP", async () => {
+      const { reg, calls, dataDir } = await setup("write");
+      const big = join(dataDir, "big.bin");
+      await writeFile(big, "");
+      await truncate(big, 25 * 1024 * 1024 + 1);
+      const res = await reg.call("gorelo_attachments", upload(big));
+      expect(res.isError).toBe(true);
+      expect(res.text).toMatch(/25 MB/);
+      expect(calls).toHaveLength(0);
+    });
+
+    it("rejects a missing file without HTTP", async () => {
+      const { reg, calls, dataDir } = await setup("write");
+      const res = await reg.call("gorelo_attachments", upload(join(dataDir, "nope.txt")));
+      expect(res.isError).toBe(true);
+      expect(res.text).toMatch(/nope\.txt/);
+      expect(calls).toHaveLength(0);
+    });
   });
 
   it("returns Gorelo errors as tool errors and audits failed writes", async () => {
