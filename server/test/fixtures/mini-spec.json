@@ -1,0 +1,215 @@
+{
+  "openapi": "3.0.1",
+  "info": { "title": "Public API", "version": "1.0.0" },
+  "paths": {
+    "/v1/tickets": {
+      "get": {
+        "operationId": "get_v1_tickets",
+        "summary": "Lists tickets.",
+        "parameters": [
+          { "name": "Cursor", "in": "query", "schema": { "type": "string" } },
+          { "name": "PageSize", "in": "query", "schema": { "type": "integer", "format": "int32" } },
+          {
+            "name": "StatusIds",
+            "in": "query",
+            "description": "Comma-separated status ids.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TicketListResponse" } }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_tickets",
+        "summary": "Creates a ticket.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json-patch+json": {
+              "schema": { "$ref": "#/components/schemas/CreateTicketCommand" }
+            },
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateTicketCommand" } }
+          }
+        },
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/v1/tickets/{ticketId}": {
+      "get": {
+        "operationId": "get_v1_tickets_ticketId",
+        "summary": "Gets a ticket.",
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          }
+        ],
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      },
+      "delete": {
+        "operationId": "delete_v1_tickets_ticketId",
+        "summary": "Deletes a ticket.",
+        "parameters": [
+          { "name": "ticketId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/v1/tickets/{ticketId}/comments": {
+      "get": {
+        "operationId": "get_v1_tickets_ticketId_comments",
+        "summary": "Lists comments.",
+        "parameters": [
+          { "name": "ticketId", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "Cursor", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/v1/tickets/statuses": {
+      "get": {
+        "operationId": "get_v1_tickets_statuses",
+        "summary": "Lists statuses.",
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/v1/projects/{projectId}/tasks": {
+      "post": {
+        "operationId": "post_v1_projects_projectId_tasks",
+        "summary": "Creates a task.",
+        "parameters": [
+          { "name": "projectId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "Title": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/v1/taxes": {
+      "get": {
+        "operationId": "get_v1_taxes",
+        "summary": "Lists taxes.",
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/v1/work-types": {
+      "get": {
+        "operationId": "get_v1_work-types",
+        "summary": "Lists work types.",
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/v1/invoices": {
+      "post": {
+        "operationId": "post_v1_invoices",
+        "summary": "Creates an invoice.",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateInvoiceCommand" } }
+          }
+        },
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/v1/invoices/{invoiceId}/pdf": {
+      "get": {
+        "operationId": "get_v1_invoices_invoiceId_pdf",
+        "summary": "Downloads an invoice PDF.",
+        "parameters": [
+          { "name": "invoiceId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/pdf": { "schema": { "type": "string", "format": "binary" } } } }
+        }
+      }
+    },
+    "/v1/items/{itemId}": {
+      "patch": {
+        "operationId": "patch_v1_items_itemId",
+        "summary": "Updates an item.",
+        "parameters": [{ "name": "itemId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "Name": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/v1/attachments": {
+      "post": {
+        "operationId": "post_v1_attachments",
+        "summary": "Uploads a file.",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "itemType": { "type": "string" },
+                  "itemId": { "type": "string", "format": "uuid" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TicketListResponse": {
+        "type": "object",
+        "properties": { "Data": { "type": "array", "items": { "type": "object" } } }
+      },
+      "CreateTicketCommand": {
+        "type": "object",
+        "required": ["Title", "ClientId"],
+        "additionalProperties": false,
+        "properties": {
+          "Title": { "type": "string", "description": "Ticket title.\r\nBackend column `Ticket.Title`." },
+          "ClientId": { "type": "integer", "format": "int64" },
+          "DueOn": { "type": "string", "format": "date-time", "nullable": true },
+          "Priority": { "type": "integer", "enum": [1, 2, 3], "nullable": true },
+          "Parent": { "$ref": "#/components/schemas/Node" },
+          "Note": {
+            "type": "string",
+            "description": "See Gorelo_PublicAPI.Tickets.Commands.CreateTicket.CreateTicketCommand.Title for rules."
+          }
+        }
+      },
+      "Node": {
+        "type": "object",
+        "properties": { "Name": { "type": "string" }, "Child": { "$ref": "#/components/schemas/Node" } }
+      },
+      "CreateInvoiceCommand": {
+        "type": "object",
+        "required": ["ClientId", "LineItems"],
+        "properties": {
+          "ClientId": { "type": "integer" },
+          "StatusId": { "type": "integer", "description": "1 = Draft, 5 = Approved." },
+          "LineItems": {
+            "type": "array",
+            "items": { "type": "object", "properties": { "Name": { "type": "string" } } }
+          }
+        }
+      }
+    }
+  }
+}
