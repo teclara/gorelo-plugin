@@ -21,6 +21,9 @@ export const UNTRUSTED_KEYS = new Set([
   "Answers",
   "Reason",
   "StatusReason",
+  "TextValue",
+  "Summary",
+  "OptionValues",
 ]);
 
 export interface Collected {
@@ -70,17 +73,23 @@ export async function collectPages(
   }
 }
 
-export function markUntrusted(value: unknown, key?: string): unknown {
+/**
+ * Wraps end-user text in <untrusted_content>. A string is wrapped when its own key is untrusted
+ * or when any ancestor key is: once a value sits under an untrusted key, every string beneath it
+ * (in nested objects and arrays) is wrapped.
+ */
+export function markUntrusted(value: unknown, key?: string, inherited = false): unknown {
+  const untrusted = inherited || (key !== undefined && UNTRUSTED_KEYS.has(key));
   if (typeof value === "string") {
-    if (!key || !UNTRUSTED_KEYS.has(key)) return value;
+    if (!untrusted) return value;
     // Escape any variant of the untrusted_content tag (case-insensitive, whitespace-tolerant)
     // to prevent injected tags from escaping the wrapper.
     const escaped = value.replace(/<(\s*\/?\s*untrusted_content)/gi, "&lt;$1");
     return `<untrusted_content>${escaped}</untrusted_content>`;
   }
-  if (Array.isArray(value)) return value.map((v) => markUntrusted(v, key));
+  if (Array.isArray(value)) return value.map((v) => markUntrusted(v, key, untrusted));
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, markUntrusted(v, k)]));
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, markUntrusted(v, k, untrusted)]));
   }
   return value;
 }

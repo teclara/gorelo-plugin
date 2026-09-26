@@ -23021,7 +23021,10 @@ var UNTRUSTED_KEYS = /* @__PURE__ */ new Set([
   "Answer",
   "Answers",
   "Reason",
-  "StatusReason"
+  "StatusReason",
+  "TextValue",
+  "Summary",
+  "OptionValues"
 ]);
 async function collectPages(fetchPage, limit, maxPageSize = PAGE_SIZE) {
   const items = [];
@@ -23047,15 +23050,16 @@ async function collectPages(fetchPage, limit, maxPageSize = PAGE_SIZE) {
     cursor = next;
   }
 }
-function markUntrusted(value, key) {
+function markUntrusted(value, key, inherited = false) {
+  const untrusted = inherited || key !== void 0 && UNTRUSTED_KEYS.has(key);
   if (typeof value === "string") {
-    if (!key || !UNTRUSTED_KEYS.has(key)) return value;
+    if (!untrusted) return value;
     const escaped = value.replace(/<(\s*\/?\s*untrusted_content)/gi, "&lt;$1");
     return `<untrusted_content>${escaped}</untrusted_content>`;
   }
-  if (Array.isArray(value)) return value.map((v) => markUntrusted(v, key));
+  if (Array.isArray(value)) return value.map((v) => markUntrusted(v, key, untrusted));
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, markUntrusted(v, k)]));
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, markUntrusted(v, k, untrusted)]));
   }
   return value;
 }
