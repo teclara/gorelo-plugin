@@ -58,7 +58,10 @@ export async function collectPages(
 export function markUntrusted(value: unknown, key?: string): unknown {
   if (typeof value === "string") {
     if (!key || !UNTRUSTED_KEYS.has(key)) return value;
-    return `<untrusted_content>${value.replaceAll("</untrusted_content>", "&lt;/untrusted_content>")}</untrusted_content>`;
+    // Escape any variant of the untrusted_content tag (case-insensitive, whitespace-tolerant)
+    // to prevent injected tags from escaping the wrapper.
+    const escaped = value.replace(/<(\s*\/?\s*untrusted_content)/gi, "&lt;$1");
+    return `<untrusted_content>${escaped}</untrusted_content>`;
   }
   if (Array.isArray(value)) return value.map((v) => markUntrusted(v, key));
   if (value && typeof value === "object") {
