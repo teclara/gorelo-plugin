@@ -28,6 +28,11 @@ export class GoreloError extends Error {
 
 const MAX_RETRIES = 3;
 const MAX_WAIT_MS = 30000;
+export const REQUEST_TIMEOUT_MS = 30000;
+
+function isAbort(err: unknown): boolean {
+  return err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+}
 
 function formatNotifications(list: Notification[]): string {
   return list
@@ -39,6 +44,7 @@ function formatNotifications(list: Notification[]): string {
 export class GoreloClient {
   private readonly fetchImpl: FetchLike;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly timeoutMs: number;
 
   constructor(
     private readonly opts: {
@@ -46,10 +52,31 @@ export class GoreloClient {
       baseUrl: string;
       fetchImpl?: FetchLike;
       sleep?: (ms: number) => Promise<void>;
+      /** Per-request timeout, covering the response body too. */
+      timeoutMs?: number;
     },
   ) {
     this.fetchImpl = opts.fetchImpl ?? ((url, init) => fetch(url, init));
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+    this.timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  }
+
+  /** Runs one request (including reading its body) and turns an abort into an actionable error. */
+  private async guarded<T>(op: OperationDef, run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (err) {
+      if (!isAbort(err)) throw err;
+      const write = op.method !== "GET";
+      throw new GoreloError(
+        `Gorelo request timed out after ${Math.round(this.timeoutMs / 1000)}s for ${op.tool}.${op.action} (${op.method} ${op.path}).${
+          write
+            ? " The write may or may not have applied: check with a read before retrying, and never repeat it blindly."
+            : " Retry, or narrow the request with filters or a smaller limit."
+        }`,
+        0,
+      );
+    }
   }
 
   buildUrl(op: OperationDef, params: Record<string, unknown>, cursor?: string, pageSize?: number): string {
@@ -91,7 +118,12 @@ export class GoreloClient {
       ...(init.headers as Record<string, string>),
     };
     for (let attempt = 0; ; attempt++) {
-      const res = await this.fetchImpl(url, { ...init, method: op.method, headers });
+      const res = await this.fetchImpl(url, {
+        ...init,
+        method: op.method,
+        headers,
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
       if (res.status !== 429) return res;
       if (attempt >= MAX_RETRIES) {
         throw new GoreloError(
@@ -184,16 +216,20 @@ export class GoreloClient {
       body === undefined
         ? {}
         : { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } };
-    return this.unwrap(op, await this.send(op, url, init));
+    return this.guarded(op, async () => this.unwrap(op, await this.send(op, url, init)));
   }
 
   async binary(op: OperationDef, params: Record<string, unknown>): Promise<Uint8Array> {
-    const res = await this.send(op, this.buildUrl(op, params), {});
-    if (!res.ok) return this.fail(op, res);
-    return new Uint8Array(await res.arrayBuffer());
+    const url = this.buildUrl(op, params);
+    return this.guarded(op, async () => {
+      const res = await this.send(op, url, {});
+      if (!res.ok) return this.fail(op, res);
+      return new Uint8Array(await res.arrayBuffer());
+    });
   }
 
   async multipart(op: OperationDef, form: FormData): Promise<Page> {
-    return this.unwrap(op, await this.send(op, this.buildUrl(op, {}), { body: form }));
+    const url = this.buildUrl(op, {});
+    return this.guarded(op, async () => this.unwrap(op, await this.send(op, url, { body: form })));
   }
 }

@@ -22839,6 +22839,10 @@ var GoreloError = class extends Error {
 };
 var MAX_RETRIES = 3;
 var MAX_WAIT_MS = 3e4;
+var REQUEST_TIMEOUT_MS = 3e4;
+function isAbort(err) {
+  return err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+}
 function formatNotifications(list) {
   return list.map((n) => [n.Code, n.Message].filter(Boolean).join(" ") + (n.ActionHint ? ` (${n.ActionHint})` : "")).filter(Boolean).join("; ");
 }
@@ -22847,10 +22851,25 @@ var GoreloClient = class {
     this.opts = opts;
     this.fetchImpl = opts.fetchImpl ?? ((url, init) => fetch(url, init));
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+    this.timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT_MS;
   }
   opts;
   fetchImpl;
   sleep;
+  timeoutMs;
+  /** Runs one request (including reading its body) and turns an abort into an actionable error. */
+  async guarded(op, run) {
+    try {
+      return await run();
+    } catch (err) {
+      if (!isAbort(err)) throw err;
+      const write = op.method !== "GET";
+      throw new GoreloError(
+        `Gorelo request timed out after ${Math.round(this.timeoutMs / 1e3)}s for ${op.tool}.${op.action} (${op.method} ${op.path}).${write ? " The write may or may not have applied: check with a read before retrying, and never repeat it blindly." : " Retry, or narrow the request with filters or a smaller limit."}`,
+        0
+      );
+    }
+  }
   buildUrl(op, params, cursor, pageSize) {
     let path = op.path;
     for (const p of op.params.filter((x) => x.in === "path")) {
@@ -22888,7 +22907,12 @@ var GoreloClient = class {
       ...init.headers
     };
     for (let attempt = 0; ; attempt++) {
-      const res = await this.fetchImpl(url, { ...init, method: op.method, headers });
+      const res = await this.fetchImpl(url, {
+        ...init,
+        method: op.method,
+        headers,
+        signal: AbortSignal.timeout(this.timeoutMs)
+      });
       if (res.status !== 429) return res;
       if (attempt >= MAX_RETRIES) {
         throw new GoreloError(
@@ -22963,15 +22987,19 @@ var GoreloClient = class {
   async json(op, params, body, cursor, pageSize) {
     const url = this.buildUrl(op, params, cursor, pageSize);
     const init = body === void 0 ? {} : { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } };
-    return this.unwrap(op, await this.send(op, url, init));
+    return this.guarded(op, async () => this.unwrap(op, await this.send(op, url, init)));
   }
   async binary(op, params) {
-    const res = await this.send(op, this.buildUrl(op, params), {});
-    if (!res.ok) return this.fail(op, res);
-    return new Uint8Array(await res.arrayBuffer());
+    const url = this.buildUrl(op, params);
+    return this.guarded(op, async () => {
+      const res = await this.send(op, url, {});
+      if (!res.ok) return this.fail(op, res);
+      return new Uint8Array(await res.arrayBuffer());
+    });
   }
   async multipart(op, form) {
-    return this.unwrap(op, await this.send(op, this.buildUrl(op, {}), { body: form }));
+    const url = this.buildUrl(op, {});
+    return this.guarded(op, async () => this.unwrap(op, await this.send(op, url, { body: form })));
   }
 };
 
@@ -22983,6 +23011,7 @@ Rules:
 - Resolve IDs with lookups (clients.list with Query, tickets.list_statuses, billing_reference.list_work_types, organization.list_users) before any write. Never guess IDs.
 - Prefer filters (ClientIds, StatusIds, Query, date ranges) and a small limit over large pulls.
 - Before any write, show the user exactly what will change and get agreement. For gorelo_admin actions, always get explicit confirmation naming the record.
+- After a failed or timed-out write, verify with a read before retrying \u2014 never blindly repeat a write.
 - List actions return {count, has_more, next_cursor, items}. Pass next_cursor back as params.cursor to continue. When has_more is true, say the results are partial; if a result reports omitted items, rerun with a smaller limit.
 - Filter params such as StatusIds take comma-separated ids ("1,2").
 - A 403 means the API key lacks that scope; tell the user which action and suggest updating the key's scopes in Gorelo.`;

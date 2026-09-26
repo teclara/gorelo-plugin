@@ -163,3 +163,53 @@ describe("binary", () => {
     ).toEqual([37, 80, 68, 70]);
   });
 });
+
+describe("timeouts", () => {
+  const post: OperationDef = { ...listTickets, method: "POST", action: "create", paginated: false };
+
+  it.each(["TimeoutError", "AbortError"])(
+    "turns a %s into a GoreloError that says a write may have applied",
+    async (errName) => {
+      const c = new GoreloClient({
+        apiKey: "k",
+        baseUrl: "https://x.test",
+        fetchImpl: async () => {
+          throw new DOMException("The operation was aborted due to timeout", errName);
+        },
+      });
+      const err = await c.json(post, {}, { Title: "x" }).catch((e) => e);
+      expect(err).toBeInstanceOf(GoreloError);
+      expect(err.message).toMatch(/timed out/);
+      expect(err.message).toContain("gorelo_tickets.create");
+      expect(err.message).toMatch(/may or may not have applied/);
+      expect(err.message).toMatch(/read before retrying/);
+    },
+  );
+
+  it("aborts a request that outlives the timeout", async () => {
+    const signals: (AbortSignal | null | undefined)[] = [];
+    const c = new GoreloClient({
+      apiKey: "k",
+      baseUrl: "https://x.test",
+      timeoutMs: 20,
+      fetchImpl: (_url, init) =>
+        new Promise((_resolve, reject) => {
+          signals.push(init.signal);
+          init.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+        }),
+    });
+    await expect(c.json(listTickets, {})).rejects.toThrow(/timed out/);
+    expect(signals[0]).toBeInstanceOf(AbortSignal);
+  });
+
+  it("passes other network errors through unchanged", async () => {
+    const c = new GoreloClient({
+      apiKey: "k",
+      baseUrl: "https://x.test",
+      fetchImpl: async () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+    await expect(c.json(listTickets, {})).rejects.toThrow("fetch failed");
+  });
+});
