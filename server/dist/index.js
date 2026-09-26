@@ -7199,6 +7199,10 @@ var require_dist = __commonJS({
   }
 });
 
+// server/src/index.ts
+import { realpathSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
 // node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
@@ -23312,8 +23316,16 @@ function createServer(env = process.env) {
   });
   return server;
 }
-var isMain = import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("dist/index.js");
-if (isMain) {
+function isMainModule() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(entry)).href;
+  } catch {
+    return false;
+  }
+}
+if (isMainModule()) {
   await createServer().connect(new StdioServerTransport());
 }
 export {

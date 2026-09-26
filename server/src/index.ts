@@ -1,3 +1,5 @@
+import { realpathSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -51,7 +53,16 @@ export function createServer(env: Record<string, string | undefined> = process.e
   return server;
 }
 
-const isMain = import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("dist/index.js");
-if (isMain) {
+function isMainModule(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(entry)).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   await createServer().connect(new StdioServerTransport());
 }
