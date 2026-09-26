@@ -1,0 +1,12 @@
+{
+  "name": "teclara",
+  "description": "Teclara Technologies plugins for Claude Code",
+  "owner": { "name": "Teclara Technologies", "url": "https://teclara.tech" },
+  "plugins": [
+    {
+      "name": "gorelo-plugin",
+      "source": ".",
+      "description": "Gorelo PSA/RMM tools and workflows for Claude Code"
+    }
+  ]
+}

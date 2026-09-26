@@ -1,0 +1,33 @@
+{
+  "name": "gorelo-plugin",
+  "displayName": "Gorelo",
+  "version": "0.1.0",
+  "description": "Work with your Gorelo PSA/RMM tenant from Claude: tickets, clients, assets, projects, time, uptime and billing. Community project, not affiliated with or endorsed by Gorelo.",
+  "author": { "name": "Teclara Technologies", "url": "https://teclara.tech" },
+  "repository": "https://github.com/teclara/gorelo-plugin",
+  "license": "MIT",
+  "keywords": ["gorelo", "msp", "psa", "rmm"],
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "Gorelo API key",
+      "description": "Create one in Gorelo under Settings > API. Scope it to match the access tier below.",
+      "sensitive": true,
+      "required": true
+    },
+    "region": {
+      "type": "string",
+      "title": "Gorelo region",
+      "description": "Where your Gorelo data is hosted: usw (US) or aue (Australia).",
+      "options": ["usw", "aue"],
+      "default": "usw"
+    },
+    "access_tier": {
+      "type": "string",
+      "title": "Access tier",
+      "description": "read: look only. write: tickets, comments, time, uptime, draft invoices. full: also deletes, approved invoices and catalogue items.",
+      "options": ["read", "write", "full"],
+      "default": "read"
+    }
+  }
+}

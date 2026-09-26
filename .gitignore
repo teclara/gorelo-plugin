@@ -1,0 +1,4 @@
+node_modules/
+.env
+*.swagger.json
+coverage/
