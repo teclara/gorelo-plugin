@@ -1,0 +1,18 @@
+name: smoke
+on:
+  schedule: [{ cron: "0 9 * * *" }]
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    if: ${{ vars.GORELO_SMOKE_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run smoke
+        env:
+          GORELO_API_KEY: ${{ secrets.GORELO_READONLY_API_KEY }}
+          GORELO_REGION: ${{ vars.GORELO_REGION || 'usw' }}
+          GORELO_DATA_DIR: ${{ runner.temp }}/gorelo

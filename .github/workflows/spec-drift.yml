@@ -1,0 +1,40 @@
+name: spec-drift
+on:
+  schedule: [{ cron: "0 13 * * 1" }]
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Fetch specs (never committed)
+        run: |
+          curl -fsSL https://api.usw.gorelo.io/swagger/v1.0/swagger.json -o usw.swagger.json
+          curl -fsSL https://api.aue.gorelo.io/swagger/v1.0/swagger.json -o aue.swagger.json
+          if ! cmp -s <(jq -S .paths usw.swagger.json) <(jq -S .paths aue.swagger.json); then
+            echo "::warning::usw and aue specs differ; generating from usw"
+          fi
+      - name: Diff
+        run: npx tsx server/scripts/spec-diff.ts usw.swagger.json > drift.md
+      - name: Regenerate, test, build
+        run: |
+          npm run codegen -- --spec usw.swagger.json
+          npm run build
+          npm test
+      - name: Open PR if changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: spec-drift
+          title: "chore: Gorelo API spec drift"
+          body-path: drift.md
+          commit-message: "chore: regenerate from Gorelo API spec"
+          add-paths: |
+            server/generated
+            server/dist
+            server/test/__snapshots__
