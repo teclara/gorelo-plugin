@@ -58,7 +58,19 @@ export class GoreloClient {
       const value = params[p.name];
       if (value === undefined || value === null || value === "")
         throw new Error(`Missing required path parameter "${p.name}"`);
-      path = path.replace(`{${p.name}}`, encodeURIComponent(String(value)));
+      const raw = String(value);
+      let decoded = raw;
+      try {
+        decoded = decodeURIComponent(raw);
+      } catch {
+        // malformed escapes are sent encoded as-is
+      }
+      if (decoded === "." || decoded === ".." || /[/\\]/.test(decoded)) {
+        throw new Error(
+          `Invalid path parameter "${p.name}": ${JSON.stringify(raw)} is not an id ("." / ".." and slashes are not allowed).`,
+        );
+      }
+      path = path.replace(`{${p.name}}`, encodeURIComponent(raw));
     }
     const query = new URLSearchParams();
     for (const p of op.params.filter((x) => x.in === "query")) {

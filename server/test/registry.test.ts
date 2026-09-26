@@ -61,9 +61,21 @@ describe("listTools", () => {
     expect(admin.annotations.destructiveHint).toBe(true);
     expect((admin.inputSchema.properties as any).action.enum).toEqual([
       "invoices_create",
+      "items_create",
       "items_update",
       "tickets_delete",
     ]);
+  });
+
+  it("refuses to construct when a read-tier operation is not a GET", () => {
+    const bad = ops.map((o) => (o.operationId === "post_v1_tickets" ? { ...o, tier: "read" as const } : o));
+    expect(
+      () =>
+        new Registry(bad, "read", {
+          client: new GoreloClient({ apiKey: "k", baseUrl: "x" }),
+          dataDir: "/tmp",
+        }),
+    ).toThrow(/gorelo_tickets\.create.*read.*POST/);
   });
 
   it("never uses oneOf/anyOf/allOf at the top level and types params per action", async () => {

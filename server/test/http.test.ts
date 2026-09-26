@@ -56,8 +56,8 @@ const client = (responses: Response[]) => {
 describe("buildUrl", () => {
   const { c } = client([]);
   it("substitutes and encodes path params, adds query and paging", () => {
-    expect(c.buildUrl(getComment, { ticketId: 5, commentId: "a/b" })).toBe(
-      "https://api.usw.gorelo.io/v1/tickets/5/comments/a%2Fb",
+    expect(c.buildUrl(getComment, { ticketId: 5, commentId: "a b?" })).toBe(
+      "https://api.usw.gorelo.io/v1/tickets/5/comments/a%20b%3F",
     );
     expect(c.buildUrl(listTickets, { StatusIds: "1,2" }, "abc", 200)).toBe(
       "https://api.usw.gorelo.io/v1/tickets?StatusIds=1%2C2&Cursor=abc&PageSize=200",
@@ -68,6 +68,12 @@ describe("buildUrl", () => {
       "https://api.usw.gorelo.io/v1/tickets?StatusIds=1%2C2",
     );
   });
+  it.each([".", "..", "a/b", "a%2Fb", "%2e%2e", "..%2F..%2Fclients", "a\\b"])(
+    "rejects path traversal value %s",
+    (value) => {
+      expect(() => c.buildUrl(getComment, { ticketId: 5, commentId: value })).toThrow(/commentId/);
+    },
+  );
   it("throws when a path param is missing", () => {
     expect(() => c.buildUrl(getComment, { ticketId: 5 })).toThrow(/commentId/);
   });

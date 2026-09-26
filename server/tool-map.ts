@@ -21,6 +21,17 @@ export const ROUTES: Route[] = [
   },
 ];
 
+/**
+ * Tools whose new non-GET operations default to the full tier (money and catalogue changes).
+ * Anything that should be reachable in the write tier needs an explicit OVERRIDES tier.
+ */
+export const FULL_BY_DEFAULT_TOOLS = new Set([
+  "gorelo_invoices",
+  "gorelo_contracts",
+  "gorelo_items",
+  "gorelo_billing_reference",
+]);
+
 export interface Override {
   action?: string;
   tier?: Tier;
@@ -34,7 +45,8 @@ export interface Override {
 export const OVERRIDES: Record<string, Override> = {
   get_v1_invoices_invoiceId_pdf: { action: "pdf" },
   post_v1_attachments: { action: "upload" },
-  post_v1_invoices: { forceBody: { StatusId: 1 }, adminCopy: true },
+  // Billing tools default non-GET ops to full, so draft create must opt into write explicitly.
+  post_v1_invoices: { tier: "write", forceBody: { StatusId: 1 }, adminCopy: true },
   post_v1_items: { tier: "full" },
   patch_v1_items_itemId: { tier: "full" },
 };

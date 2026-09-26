@@ -52,6 +52,30 @@ export const OPERATIONS: OperationDef[] = [
     }
   },
   {
+    "operationId": "post_v1_items",
+    "method": "POST",
+    "path": "/v1/items",
+    "summary": "Creates a catalogue item.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_admin",
+    "action": "items_create",
+    "tier": "full",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  {
     "operationId": "patch_v1_items_itemId",
     "method": "PATCH",
     "path": "/v1/items/{itemId}",

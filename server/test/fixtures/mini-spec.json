@@ -135,6 +135,20 @@
         }
       }
     },
+    "/v1/items": {
+      "post": {
+        "operationId": "post_v1_items",
+        "summary": "Creates a catalogue item.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "Name": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
     "/v1/items/{itemId}": {
       "patch": {
         "operationId": "patch_v1_items_itemId",

@@ -134,6 +134,12 @@ export class Registry {
   ) {
     applyFormats(this.ajv);
     for (const op of ops) {
+      // Defence in depth: a mis-tiered write must never reach a read-only install.
+      if (op.tier === "read" && op.method !== "GET") {
+        throw new Error(
+          `${op.tool}.${op.action} is tier read but uses ${op.method}; only GET operations may be read tier.`,
+        );
+      }
       const all = this.allByTool.get(op.tool) ?? new Map();
       all.set(op.action, op);
       this.allByTool.set(op.tool, all);

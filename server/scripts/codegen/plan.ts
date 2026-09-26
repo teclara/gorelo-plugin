@@ -1,5 +1,5 @@
 import type { BodyDef, HttpMethod, OperationDef, ParamDef, Tier } from "../../src/types.js";
-import { OVERRIDES, resolveRoute } from "../../tool-map.js";
+import { FULL_BY_DEFAULT_TOOLS, OVERRIDES, type Override, resolveRoute } from "../../tool-map.js";
 import { cleanDescription, normalizeSchema } from "./schema.js";
 
 export type OpenApiSpec = {
@@ -37,9 +37,10 @@ export function autoAction(method: HttpMethod, path: string, base: string): stri
   return [verb, ...literals].join("_");
 }
 
-function defaultTier(method: HttpMethod): Tier {
+export function defaultTier(method: HttpMethod, tool: string): Tier {
   if (method === "GET") return "read";
   if (method === "DELETE") return "full";
+  if (FULL_BY_DEFAULT_TOOLS.has(tool)) return "full";
   return "write";
 }
 
@@ -63,9 +64,13 @@ function planBody(op: RawOp, components: Record<string, unknown>, strip: string[
   return { contentType, required: op.requestBody?.required === true, schema };
 }
 
-export function planOperations(spec: OpenApiSpec): OperationDef[] {
+export function planOperations(
+  spec: OpenApiSpec,
+  overrides: Record<string, Override> = OVERRIDES,
+): OperationDef[] {
   const components = spec.components?.schemas ?? {};
   const out: OperationDef[] = [];
+  const used = new Set<string>();
 
   for (const [path, item] of Object.entries(spec.paths)) {
     const shared = (item.parameters as RawParam[] | undefined) ?? [];
@@ -73,10 +78,11 @@ export function planOperations(spec: OpenApiSpec): OperationDef[] {
       const op = item[method.toLowerCase()] as RawOp | undefined;
       if (!op) continue;
       const operationId = op.operationId ?? `${method.toLowerCase()}_${path}`;
-      const override = OVERRIDES[operationId] ?? {};
+      if (Object.hasOwn(overrides, operationId)) used.add(operationId);
+      const override = overrides[operationId] ?? {};
       const { tool, base } = resolveRoute(path);
       const action = override.action ?? autoAction(method, path, base);
-      const tier = override.tier ?? defaultTier(method);
+      const tier = override.tier ?? defaultTier(method, tool);
 
       const rawParams = [...shared, ...(op.parameters ?? [])];
       const params: ParamDef[] = rawParams
@@ -149,6 +155,10 @@ export function planOperations(spec: OpenApiSpec): OperationDef[] {
       throw new Error(`Duplicate action ${key}; add an OVERRIDES entry in server/tool-map.ts`);
     seen.add(key);
     if (op.body === undefined) delete op.body;
+  }
+  for (const id of Object.keys(overrides)) {
+    if (!used.has(id))
+      throw new Error(`Unused override ${id} — Gorelo renamed or removed it; review tool-map.ts`);
   }
   return out.sort((a, b) => a.tool.localeCompare(b.tool) || a.action.localeCompare(b.action));
 }

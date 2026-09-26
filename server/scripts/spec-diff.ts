@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { OperationDef } from "../src/types.js";
+import { OVERRIDES, type Override } from "../tool-map.js";
 import { type OpenApiSpec, planOperations } from "./codegen/plan.js";
 
 type Diff = { added: string[]; removed: string[]; changed: string[] };
@@ -7,13 +8,24 @@ type Diff = { added: string[]; removed: string[]; changed: string[] };
 const label = (o: OperationDef) => `${o.tier.padEnd(5)} ${o.tool}.${o.action}  ${o.method} ${o.path}`;
 const key = (o: OperationDef) => `${o.tool}.${o.action}`;
 
-export function diffOperations(before: OperationDef[], after: OperationDef[]): Diff {
+/** Flags added rows whose tier or name came from defaults rather than a reviewed OVERRIDES entry. */
+function addedLabel(o: OperationDef, overrides: Record<string, Override>): string {
+  const override = overrides[o.operationId];
+  const tags = [...(override?.tier ? [] : ["[default-tier]"]), ...(override?.action ? [] : ["[auto-name]"])];
+  return tags.length ? `${label(o)}  ${tags.join(" ")}` : label(o);
+}
+
+export function diffOperations(
+  before: OperationDef[],
+  after: OperationDef[],
+  overrides: Record<string, Override> = OVERRIDES,
+): Diff {
   const b = new Map(before.map((o) => [key(o), o]));
   const a = new Map(after.map((o) => [key(o), o]));
   return {
     added: [...a.values()]
       .filter((o) => !b.has(key(o)))
-      .map(label)
+      .map((o) => addedLabel(o, overrides))
       .sort(),
     removed: [...b.values()]
       .filter((o) => !a.has(key(o)))
@@ -35,8 +47,8 @@ export function formatDiff(d: Diff): string {
     section("Removed", d.removed),
     section("Changed", d.changed),
     "### Review",
-    "- [ ] Review tier for every added operation (POST/PATCH default to write, DELETE to full)",
-    "- [ ] Add friendly action names in `server/tool-map.ts` where the automatic name is unclear",
+    "- [ ] Review tier for every added operation, especially rows tagged `[default-tier]` (GET defaults to read; POST/PATCH to write, or full on invoices/contracts/items/billing reference; DELETE to full)",
+    "- [ ] Add friendly action names in `server/tool-map.ts` for rows tagged `[auto-name]` where the automatic name is unclear",
     "- [ ] Update skills if a removed or renamed action is referenced (the skills test will fail if so)",
   ]
     .filter(Boolean)

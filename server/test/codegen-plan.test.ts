@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { autoAction, planOperations } from "../scripts/codegen/plan.js";
-import { resolveRoute } from "../tool-map.js";
+import { OVERRIDES, resolveRoute } from "../tool-map.js";
 import spec from "./fixtures/mini-spec.json" with { type: "json" };
 
 const ops = planOperations(spec as never);
@@ -107,6 +107,55 @@ describe("planOperations", () => {
       },
     };
     // "/v1/a/x" → list_x; "/v1/a/{id}/x" → list_x as well
-    expect(() => planOperations(clash)).toThrow(/Duplicate action gorelo_a\.list_x/);
+    expect(() => planOperations(clash, {})).toThrow(/Duplicate action gorelo_a\.list_x/);
+  });
+
+  it("throws when an OVERRIDES entry matches no operation", () => {
+    const tiny = { paths: { "/v1/a": { get: { operationId: "get_v1_a", responses: {} } } } };
+    expect(() => planOperations(tiny, { get_v1_gone: { action: "x" } })).toThrow(
+      /Unused override get_v1_gone — Gorelo renamed or removed it; review tool-map\.ts/,
+    );
+    expect(() => planOperations(tiny, { get_v1_a: { action: "x" } })).not.toThrow();
+  });
+
+  it("defaults new non-GET billing operations to full, other writes to write", () => {
+    const body = { content: { "application/json": { schema: { type: "object" } } } };
+    const billing = {
+      paths: {
+        "/v1/invoices/{invoiceId}/approve": { post: { operationId: "a", requestBody: body, responses: {} } },
+        "/v1/contracts": {
+          get: { operationId: "b", responses: {} },
+          post: { operationId: "c", requestBody: body, responses: {} },
+        },
+        "/v1/items/{itemId}/archive": { patch: { operationId: "d", responses: {} } },
+        "/v1/work-types": { post: { operationId: "e", requestBody: body, responses: {} } },
+        "/v1/tickets": { post: { operationId: "f", requestBody: body, responses: {} } },
+      },
+    };
+    const planned = planOperations(billing, {});
+    const byId = (id: string) => planned.filter((o) => o.operationId === id);
+    expect(byId("a")).toMatchObject([
+      { tool: "gorelo_admin", action: "invoices_create_approve", tier: "full" },
+    ]);
+    expect(byId("b")).toMatchObject([{ tool: "gorelo_contracts", action: "list", tier: "read" }]);
+    expect(byId("c")).toMatchObject([{ tool: "gorelo_admin", action: "contracts_create", tier: "full" }]);
+    expect(byId("d")).toMatchObject([{ tool: "gorelo_admin", action: "items_update_archive", tier: "full" }]);
+    expect(byId("e")).toMatchObject([
+      { tool: "gorelo_admin", action: "billing_reference_create_work_types", tier: "full" },
+    ]);
+    expect(byId("f")).toMatchObject([{ tool: "gorelo_tickets", action: "create", tier: "write" }]);
+  });
+
+  it("keeps draft invoice create in write only because tool-map says so explicitly", () => {
+    expect(OVERRIDES.post_v1_invoices).toMatchObject({
+      tier: "write",
+      forceBody: { StatusId: 1 },
+      adminCopy: true,
+    });
+    const { tier: _tier, ...withoutTier } = OVERRIDES.post_v1_invoices!;
+    const planned = planOperations(spec as never, { ...OVERRIDES, post_v1_invoices: withoutTier });
+    expect(planned.filter((o) => o.operationId === "post_v1_invoices").map((o) => o.tool)).toEqual([
+      "gorelo_admin",
+    ]);
   });
 });

@@ -22857,7 +22857,18 @@ var GoreloClient = class {
       const value = params[p.name];
       if (value === void 0 || value === null || value === "")
         throw new Error(`Missing required path parameter "${p.name}"`);
-      path = path.replace(`{${p.name}}`, encodeURIComponent(String(value)));
+      const raw = String(value);
+      let decoded = raw;
+      try {
+        decoded = decodeURIComponent(raw);
+      } catch {
+      }
+      if (decoded === "." || decoded === ".." || /[/\\]/.test(decoded)) {
+        throw new Error(
+          `Invalid path parameter "${p.name}": ${JSON.stringify(raw)} is not an id ("." / ".." and slashes are not allowed).`
+        );
+      }
+      path = path.replace(`{${p.name}}`, encodeURIComponent(raw));
     }
     const query = new URLSearchParams();
     for (const p of op.params.filter((x) => x.in === "query")) {
@@ -23197,6 +23208,11 @@ var Registry = class {
     this.deps = deps;
     applyFormats(this.ajv);
     for (const op of ops) {
+      if (op.tier === "read" && op.method !== "GET") {
+        throw new Error(
+          `${op.tool}.${op.action} is tier read but uses ${op.method}; only GET operations may be read tier.`
+        );
+      }
       const all = this.allByTool.get(op.tool) ?? /* @__PURE__ */ new Map();
       all.set(op.action, op);
       this.allByTool.set(op.tool, all);
