@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+        with: { node-version: 22, cache: npm }
       - run: npm ci
       - name: Fetch specs (never committed)
         run: |
@@ -22,11 +22,60 @@ jobs:
           fi
       - name: Diff
         run: npx tsx server/scripts/spec-diff.ts usw.swagger.json > drift.md
-      - name: Regenerate, test, build
+      # PRs opened with GITHUB_TOKEN do not trigger ci.yml, so every check runs here and failures
+      # are reported in the PR body (and the PR opened as a draft) instead of stopping the job.
+      - name: Regenerate, build, test
+        id: tests
+        continue-on-error: true
         run: |
-          npm run codegen -- --spec usw.swagger.json
-          npm run build
-          npm test
+          set -o pipefail
+          { npm run codegen -- --spec usw.swagger.json && npm run build && npm test; } 2>&1 | tee tests.log
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee typecheck.log
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee lint.log
+      - name: Validate plugin
+        id: validate
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          {
+            npx -y @anthropic-ai/claude-code plugin validate . &&
+            npx -y @anthropic-ai/claude-code plugin validate .claude-plugin/plugin.json
+          } 2>&1 | tee validate.log
+      - name: Report check failures in the PR body
+        if: >-
+          steps.tests.outcome == 'failure' || steps.typecheck.outcome == 'failure' ||
+          steps.lint.outcome == 'failure' || steps.validate.outcome == 'failure'
+        env:
+          TESTS: ${{ steps.tests.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          VALIDATE: ${{ steps.validate.outcome }}
+        run: |
+          report() {
+            [ "$2" = "failure" ] || return 0
+            {
+              echo
+              echo "## ⚠️ $1 failed on the regenerated code"
+              echo
+              echo '```'
+              tail -n 60 "$3" 2>/dev/null || echo "(no output captured)"
+              echo '```'
+            } >> drift.md
+          }
+          report "Tests" "$TESTS" tests.log
+          report "Typecheck" "$TYPECHECK" typecheck.log
+          report "Lint" "$LINT" lint.log
+          report "Plugin validation" "$VALIDATE" validate.log
       - name: Open PR if changed
         uses: peter-evans/create-pull-request@v7
         with:
@@ -34,6 +83,9 @@ jobs:
           title: "chore: Gorelo API spec drift"
           body-path: drift.md
           commit-message: "chore: regenerate from Gorelo API spec"
+          draft: >-
+            ${{ steps.tests.outcome == 'failure' || steps.typecheck.outcome == 'failure' ||
+            steps.lint.outcome == 'failure' || steps.validate.outcome == 'failure' }}
           add-paths: |
             server/generated
             server/dist

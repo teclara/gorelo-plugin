@@ -62,6 +62,8 @@ npm run build     # rebuild server/dist/index.js (committed)
 
 Tools are generated from Gorelo's public OpenAPI spec. A weekly workflow opens a PR when Gorelo adds or changes endpoints. Naming and tier overrides live in `server/tool-map.ts`.
 
+The weekly spec-drift workflow runs the tests, typecheck, lint and plugin validation itself, because PRs opened with `GITHUB_TOKEN` don't trigger `ci.yml`. If any check fails, it opens the PR as a draft and puts the failure output in the PR body. For the workflow to open PRs at all, enable **Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests"** on the repository. If the repo belongs to an organization, the org must allow it too.
+
 ## License
 
 MIT
