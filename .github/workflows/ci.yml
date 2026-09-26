@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+        with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -19,4 +19,6 @@ jobs:
       - name: Bundle and generated code are committed and current
         run: git diff --exit-code server/dist server/generated
       - name: Validate plugin
-        run: npx -y @anthropic-ai/claude-code plugin validate .
+        run: |
+          npx -y @anthropic-ai/claude-code plugin validate .
+          npx -y @anthropic-ai/claude-code plugin validate .claude-plugin/plugin.json
