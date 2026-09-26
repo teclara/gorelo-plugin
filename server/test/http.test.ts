@@ -139,6 +139,14 @@ describe("json", () => {
     const { c } = client([json(200, { IsSuccess: false, Notifications: [{ Message: "nope" }] })]);
     await expect(c.json(listTickets, {})).rejects.toThrow(/nope/);
   });
+
+  it("rejects 200 with non-JSON body", async () => {
+    const { c } = client([new Response("<html>oops</html>", { status: 200 })]);
+    const err = await c.json(listTickets, {}).catch((e) => e);
+    expect(err).toBeInstanceOf(GoreloError);
+    expect(err.message).toMatch(/non-JSON/);
+    expect(err.status).toBe(200);
+  });
 });
 
 describe("binary", () => {

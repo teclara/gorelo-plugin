@@ -129,12 +129,20 @@ export class GoreloClient {
     if (!res.ok) return this.fail(op, res);
     const text = await res.text();
     if (!text) return { data: null, hasMore: false, notifications: [] };
-    const body = JSON.parse(text) as {
+    let body: {
       IsSuccess?: boolean;
       Data?: unknown;
       DataContext?: { Pagination?: { NextCursor?: string | null; HasMore?: boolean } };
       Notifications?: Notification[];
     };
+    try {
+      body = JSON.parse(text) as typeof body;
+    } catch {
+      throw new GoreloError(
+        `Gorelo returned a non-JSON response for ${op.tool}.${op.action} (${res.status}): ${text.slice(0, 200)}`,
+        res.status,
+      );
+    }
     const notifications = body.Notifications ?? [];
     if (body.IsSuccess === false) {
       throw new GoreloError(
