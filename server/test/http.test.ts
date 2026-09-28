@@ -256,7 +256,24 @@ describe("timeouts", () => {
     expect(signals[0]).toBeInstanceOf(AbortSignal);
   });
 
-  it("passes other network errors through unchanged", async () => {
+  it("names the action and the cause when the network fails on a read", async () => {
+    const c = new GoreloClient({
+      apiKey: "k",
+      baseUrl: "https://x.test",
+      fetchImpl: async () => {
+        throw new TypeError("fetch failed", { cause: new Error("getaddrinfo ENOTFOUND x.test") });
+      },
+    });
+    const err = await c.json(listTickets, {}).catch((e) => e);
+    expect(err).toBeInstanceOf(GoreloError);
+    expect(err.status).toBe(0);
+    expect(err.message).toContain("gorelo_tickets.list (GET /v1/tickets)");
+    expect(err.message).toContain("fetch failed");
+    expect(err.message).toContain("getaddrinfo ENOTFOUND x.test");
+    expect(err.message).not.toMatch(/may or may not have applied/);
+  });
+
+  it("says a write may have applied when the network fails mid-write", async () => {
     const c = new GoreloClient({
       apiKey: "k",
       baseUrl: "https://x.test",
@@ -264,6 +281,53 @@ describe("timeouts", () => {
         throw new TypeError("fetch failed");
       },
     });
-    await expect(c.json(listTickets, {})).rejects.toThrow("fetch failed");
+    const err = await c.json(post, {}, { Title: "x" }).catch((e) => e);
+    expect(err).toBeInstanceOf(GoreloError);
+    expect(err.message).toContain("gorelo_tickets.create (POST /v1/tickets)");
+    expect(err.message).toContain("fetch failed");
+    expect(err.message).toMatch(/may or may not have applied/);
+    expect(err.message).toMatch(/read before retrying/);
+  });
+
+  it("converts a failure while reading the body, and non-Error throws", async () => {
+    const broken = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.error(new Error("socket hang up"));
+        },
+      }),
+      { status: 200 },
+    );
+    const { c } = client([broken]);
+    const err = await c.json(listTickets, {}).catch((e) => e);
+    expect(err).toBeInstanceOf(GoreloError);
+    expect(err.message).toContain("socket hang up");
+
+    const c2 = new GoreloClient({
+      apiKey: "k",
+      baseUrl: "https://x.test",
+      fetchImpl: async () => {
+        throw "boom";
+      },
+    });
+    const err2 = await c2
+      .binary({ ...getComment, response: "binary" }, { ticketId: 1, commentId: 2 })
+      .catch((e) => e);
+    expect(err2).toBeInstanceOf(GoreloError);
+    expect(err2.message).toContain("boom");
+  });
+
+  it("keeps GoreloErrors and path parameter errors as they are", async () => {
+    const { c } = client([json(403, {})]);
+    const err = await c.json(listTickets, {}).catch((e) => e);
+    expect(err.status).toBe(403);
+    expect(err.message).toMatch(/^The API key lacks the scope/);
+
+    const bad = await c.json(getComment, { ticketId: 5 }).catch((e) => e);
+    expect(bad).not.toBeInstanceOf(GoreloError);
+    expect(bad.message).toBe('Missing required path parameter "commentId"');
+    const traversal = await c.binary(getComment, { ticketId: 5, commentId: "../x" }).catch((e) => e);
+    expect(traversal).not.toBeInstanceOf(GoreloError);
+    expect(traversal.message).toMatch(/^Invalid path parameter "commentId"/);
   });
 });

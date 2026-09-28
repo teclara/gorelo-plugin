@@ -42,6 +42,13 @@ function formatNotifications(list: Notification[]): string {
     .join("; ");
 }
 
+/** The error's message plus its cause's, which is where fetch puts the reason (DNS, reset, refused). */
+function describeCause(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const cause = err.cause instanceof Error ? err.cause.message : err.cause ? String(err.cause) : "";
+  return [err.message || err.name, cause].filter(Boolean).join(": ").replace(/\.+$/, "");
+}
+
 /** Text from the API goes into an error message wrapped, so the model treats it as data. */
 function apiText(text: string): string {
   return text ? wrapUntrusted(text) : "no details";
@@ -67,21 +74,29 @@ export class GoreloClient {
     this.timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT_MS;
   }
 
-  /** Runs one request (including reading its body) and turns an abort into an actionable error. */
+  /**
+   * Runs one request (including reading its body) and turns a timeout or network failure into an
+   * actionable error. URL building happens outside, so parameter errors keep their own messages.
+   */
   private async guarded<T>(op: OperationDef, run: () => Promise<T>): Promise<T> {
     try {
       return await run();
     } catch (err) {
-      if (!isAbort(err)) throw err;
-      const write = op.method !== "GET";
-      throw new GoreloError(
-        `Gorelo request timed out after ${Math.round(this.timeoutMs / 1000)}s for ${op.tool}.${op.action} (${op.method} ${op.path}).${
-          write
-            ? " The write may or may not have applied: check with a read before retrying, and never repeat it blindly."
-            : " Retry, or narrow the request with filters or a smaller limit."
-        }`,
-        0,
-      );
+      if (err instanceof GoreloError) throw err;
+      const where = `${op.tool}.${op.action} (${op.method} ${op.path})`;
+      const advice =
+        op.method !== "GET"
+          ? " The write may or may not have applied: check with a read before retrying, and never repeat it blindly."
+          : isAbort(err)
+            ? " Retry, or narrow the request with filters or a smaller limit."
+            : " Check the network connection and the region, then retry.";
+      if (isAbort(err)) {
+        throw new GoreloError(
+          `Gorelo request timed out after ${Math.round(this.timeoutMs / 1000)}s for ${where}.${advice}`,
+          0,
+        );
+      }
+      throw new GoreloError(`Gorelo request failed for ${where}: ${describeCause(err)}.${advice}`, 0);
     }
   }
 
