@@ -1,9 +1,10 @@
-import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { type FileHandle, open, realpath, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join, resolve, sep } from "node:path";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { Ajv, type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
-import { appendAudit } from "./audit.js";
+import { type AuditEntry, appendAudit, ensurePrivateDir, PRIVATE_FILE_MODE } from "./audit.js";
 import type { GoreloClient } from "./http.js";
 import { collectPages, DEFAULT_LIMIT, MAX_LIMIT, markUntrusted, PAGE_SIZE, renderResult } from "./shape.js";
 import { type JsonSchema, type OperationDef, TIER_RANK, type Tier } from "./types.js";
@@ -89,11 +90,58 @@ function stripForcedKeys(
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 /**
+ * The part of `real` (already symlink-resolved) below `dir`, or undefined when `real` is not
+ * strictly inside it or `dir` does not exist.
+ */
+async function pathBelow(dir: string, real: string): Promise<string | undefined> {
+  let root: string;
+  try {
+    root = await realpath(resolve(dir));
+  } catch {
+    return undefined;
+  }
+  const below = relative(root, real);
+  if (below === "" || below === ".." || below.startsWith(`..${sep}`) || isAbsolute(below)) {
+    return undefined;
+  }
+  return below;
+}
+
+/**
+ * Read-only, without following a symlink swapped in as the last component after it was resolved,
+ * and without waiting for a writer when the path is a named pipe. Both flags are POSIX-only.
+ */
+const UPLOAD_OPEN_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0);
+
+/**
  * Resolves an upload path and refuses anything that looks like a secret or isn't a plain file.
  * Ticket text is untrusted, so a prompt-injected "attach ~/.ssh/id_rsa" must not work. Checks
  * both the given path and its symlink-resolved target. Returns the real path or an error message.
+ *
+ * `allowedDir` is a directory whose own location is trusted even though it sits under a
+ * dot-directory: the plugin's downloads folder, under ~/.claude. A file whose real path is inside
+ * it is checked for hidden segments below that directory only. Containment is decided after
+ * symlinks are resolved, so a link in there pointing at ~/.ssh is still refused.
  */
-export async function checkUploadPath(filePath: string): Promise<{ path: string } | { error: string }> {
+export async function checkUploadPath(
+  filePath: string,
+  allowedDir?: string,
+): Promise<{ path: string } | { error: string }> {
+  const opened = await openUpload(filePath, allowedDir);
+  if ("error" in opened) return opened;
+  await opened.handle.close();
+  return { path: opened.path };
+}
+
+/**
+ * checkUploadPath, but returns the file opened, with the regular-file and size checks made on
+ * that open handle. Reading from the handle means the file checked is the file uploaded, even if
+ * the path is pointed somewhere else in between. The caller closes the handle.
+ */
+export async function openUpload(
+  filePath: string,
+  allowedDir?: string,
+): Promise<{ path: string; handle: FileHandle } | { error: string }> {
   const expanded =
     filePath === "~" || filePath.startsWith("~/") ? join(homedir(), filePath.slice(1)) : filePath;
   const given = resolve(expanded);
@@ -103,7 +151,8 @@ export async function checkUploadPath(filePath: string): Promise<{ path: string 
   } catch {
     return { error: `Cannot upload ${given}: the file does not exist or cannot be read.` };
   }
-  for (const candidate of [given, real]) {
+  const inside = allowedDir === undefined ? undefined : await pathBelow(allowedDir, real);
+  for (const candidate of inside === undefined ? [given, real] : [inside]) {
     const hidden = candidate.split(sep).find((segment) => segment.startsWith("."));
     if (hidden) {
       return {
@@ -111,14 +160,47 @@ export async function checkUploadPath(filePath: string): Promise<{ path: string 
       };
     }
   }
-  const info = await stat(real);
-  if (!info.isFile()) return { error: `Refusing to upload ${given}: it is not a regular file.` };
-  if (info.size > MAX_UPLOAD_BYTES) {
-    return {
-      error: `Refusing to upload ${given}: it is ${(info.size / 1024 / 1024).toFixed(1)} MB, over the 25 MB limit.`,
-    };
+  let handle: FileHandle;
+  try {
+    handle = await open(real, UPLOAD_OPEN_FLAGS);
+  } catch {
+    return { error: `Cannot upload ${given}: the file does not exist or cannot be read.` };
   }
-  return { path: real };
+  let refusal: string;
+  try {
+    const info = await handle.stat();
+    if (!info.isFile()) refusal = `Refusing to upload ${given}: it is not a regular file.`;
+    else if (info.size > MAX_UPLOAD_BYTES) refusal = `Refusing to upload ${given}: ${overLimit(info.size)}`;
+    else return { path: real, handle };
+  } catch {
+    refusal = `Cannot upload ${given}: the file does not exist or cannot be read.`;
+  }
+  await handle.close().catch(() => {});
+  return { error: refusal };
+}
+
+function overLimit(bytes: number): string {
+  return `it is ${(bytes / 1024 / 1024).toFixed(1)} MB, over the 25 MB limit.`;
+}
+
+/** Folder under the data directory that binary responses are saved to. */
+const DOWNLOADS_DIR = "downloads";
+
+/**
+ * Writes `bytes` to `<dir>/<stem><ext>`, or to `<stem>-1<ext>`, `<stem>-2<ext>`, ... when that
+ * name is taken, so an earlier download is never overwritten. Returns the path written.
+ */
+async function writeNew(dir: string, stem: string, ext: string, bytes: Uint8Array): Promise<string> {
+  for (let n = 0; ; n++) {
+    const path = join(dir, `${stem}${n ? `-${n}` : ""}${ext}`);
+    try {
+      // "wx" fails when the path exists (including as a symlink) instead of writing through it.
+      await writeFile(path, bytes, { flag: "wx", mode: PRIVATE_FILE_MODE });
+      return path;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    }
+  }
 }
 
 export class Registry {
@@ -207,21 +289,25 @@ export class Registry {
       const names = [...(allowed?.keys() ?? [])].sort().join(", ");
       return { text: `Unknown action "${action}" for ${tool}. Available: ${names}`, isError: true };
     }
+    const params = args.params ?? {};
     const op = allowed?.get(action);
     if (!op) {
-      return {
-        text: `${tool}.${action} requires the ${known.tier} tier; this install is ${this.tier}. Change "Access tier" in /plugin config for gorelo-plugin.`,
-        isError: true,
-      };
+      return this.deny(
+        tool,
+        action,
+        params,
+        `${tool}.${action} requires the ${known.tier} tier; this install is ${this.tier}. Change "Access tier" in /plugin config for gorelo-plugin.`,
+      );
     }
 
-    const params = args.params ?? {};
     const forced = conflictingForcedKeys(params.body, op.forceBody);
     if (forced.length) {
-      return {
-        text: `${forced.join(", ")} is set by the server for ${tool}.${action} and cannot be supplied.${tool === "gorelo_invoices" ? " Use gorelo_admin.invoices_create (full tier) to create an approved invoice." : ""}`,
-        isError: true,
-      };
+      return this.deny(
+        tool,
+        action,
+        params,
+        `${forced.join(", ")} is set by the server for ${tool}.${action} and cannot be supplied.${tool === "gorelo_invoices" ? " Use gorelo_admin.invoices_create (full tier) to create an approved invoice." : ""}`,
+      );
     }
     const validate = this.validator(op);
     if (!validate(params)) {
@@ -236,47 +322,69 @@ export class Registry {
       return { text: `Invalid params for ${tool}.${action}: ${detail}`, isError: true };
     }
 
-    let uploadPath: string | undefined;
+    let upload: FileHandle | undefined;
     if (op.body?.contentType === "multipart/form-data") {
-      const checked = await checkUploadPath(String(params.file_path));
-      if ("error" in checked) return { text: checked.error, isError: true };
-      uploadPath = checked.path;
+      const opened = await openUpload(String(params.file_path), join(this.deps.dataDir, DOWNLOADS_DIR));
+      if ("error" in opened) return this.deny(tool, action, params, opened.error);
+      upload = opened.handle;
     }
 
     const isWrite = op.method !== "GET";
     let result: unknown;
     let execError: string | undefined;
     try {
-      result = await this.execute(op, params, uploadPath);
+      result = await this.execute(op, params, upload);
     } catch (err) {
       execError = err instanceof Error ? err.message : String(err);
+    } finally {
+      await upload?.close().catch(() => {});
     }
 
-    // Audit failures must never mask (or duplicate the report of) a write that already happened,
-    // and must never make call() reject — they're reported as a trailing warning instead.
-    let auditWarning = "";
-    if (isWrite) {
-      try {
-        await appendAudit(
-          this.deps.dataDir,
+    const auditWarning = isWrite
+      ? await this.audit(
           execError === undefined
-            ? { tool, action, params, status: 200 }
+            ? { tool, action, params, status: "ok" }
             : { tool, action, params, status: "error", error: execError },
-        );
-      } catch (auditErr) {
-        const auditMessage = auditErr instanceof Error ? auditErr.message : String(auditErr);
-        auditWarning = `\n\nWarning: audit log write failed: ${auditMessage}`;
-      }
-    }
+        )
+      : "";
 
     if (execError !== undefined) return { text: execError + auditWarning, isError: true };
     return { text: renderResult(markUntrusted(result)) + auditWarning, isError: false };
   }
 
+  /**
+   * Appends to the audit log and returns a warning to append to the result ("" on success).
+   * Audit failures must never mask (or duplicate the report of) a write that already happened,
+   * and must never make call() reject — they're reported as a trailing warning instead.
+   */
+  private async audit(entry: AuditEntry): Promise<string> {
+    try {
+      await appendAudit(this.deps.dataDir, entry);
+      return "";
+    } catch (auditErr) {
+      const auditMessage = auditErr instanceof Error ? auditErr.message : String(auditErr);
+      return `\n\nWarning: audit log write failed: ${auditMessage}`;
+    }
+  }
+
+  /**
+   * Refuses a call on security grounds (tier, upload path, server-forced body key) and audits
+   * the attempt: a refusal is what a prompt injection in ticket text looks like from here.
+   */
+  private async deny(
+    tool: string,
+    action: string,
+    params: unknown,
+    reason: string,
+  ): Promise<{ text: string; isError: boolean }> {
+    const auditWarning = await this.audit({ tool, action, params, status: "denied", reason });
+    return { text: reason + auditWarning, isError: true };
+  }
+
   private async execute(
     op: OperationDef,
     params: Record<string, unknown>,
-    uploadPath?: string,
+    upload?: FileHandle,
   ): Promise<unknown> {
     const { client, dataDir } = this.deps;
     const { body, limit, cursor, file_path, ...rest } = params as {
@@ -288,21 +396,29 @@ export class Registry {
 
     if (op.response === "binary") {
       const bytes = await client.binary(op, rest);
-      const dir = join(dataDir, "downloads");
-      await mkdir(dir, { recursive: true });
-      const id = Object.values(rest).map(String).join("-") || "file";
-      const path = join(
-        dir,
-        `${op.path.includes("invoices") ? "invoice" : op.tool.replace(/^gorelo_/, "")}-${id}.pdf`,
-      );
-      await writeFile(path, bytes);
+      const dir = join(dataDir, DOWNLOADS_DIR);
+      await ensurePrivateDir(dir);
+      // Parameter values end up in the file name, so keep separators and dots out of it.
+      const id =
+        Object.values(rest)
+          .map((v) => String(v).replace(/[^A-Za-z0-9_-]/g, "_"))
+          .join("-") || "file";
+      const stem = `${op.path.includes("invoices") ? "invoice" : op.tool.replace(/^gorelo_/, "")}-${id}`;
+      // OperationDef only says "binary"; the path is the one place that names the format.
+      const ext = /\/pdf\/?$/i.test(op.path) ? ".pdf" : ".bin";
+      const path = await writeNew(dir, stem, ext, bytes);
       return { path, bytes: bytes.length };
     }
 
     if (op.body?.contentType === "multipart/form-data") {
       const form = new FormData();
       for (const [k, v] of Object.entries(body ?? {})) form.set(k, String(v));
-      const data = await readFile(uploadPath ?? String(file_path));
+      if (!upload) throw new Error(`Cannot upload ${String(file_path)}: the file was not opened.`);
+      // Read from the handle that was checked, not from the path again.
+      const data = await upload.readFile();
+      if (data.length > MAX_UPLOAD_BYTES) {
+        throw new Error(`Refusing to upload ${String(file_path)}: ${overLimit(data.length)}`);
+      }
       form.set("file", new Blob([data]), basename(String(file_path)));
       return (await client.multipart(op, form)).data;
     }
