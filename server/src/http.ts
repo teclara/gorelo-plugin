@@ -28,8 +28,9 @@ export class GoreloError extends Error {
 }
 
 const MAX_RETRIES = 3;
-const MAX_WAIT_MS = 30000;
 export const REQUEST_TIMEOUT_MS = 30000;
+/** Budget for one call, across every attempt and rate-limit wait; kept under MCP client timeouts. */
+export const CALL_DEADLINE_MS = 60000;
 
 function isAbort(err: unknown): boolean {
   return err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
@@ -68,6 +69,8 @@ export class GoreloClient {
   private readonly fetchImpl: FetchLike;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly timeoutMs: number;
+  private readonly deadlineMs: number;
+  private readonly now: () => number;
 
   constructor(
     private readonly opts: {
@@ -77,20 +80,26 @@ export class GoreloClient {
       sleep?: (ms: number) => Promise<void>;
       /** Per-request timeout, covering the response body too. */
       timeoutMs?: number;
+      /** Total time one call may take, including retries and the waits between them. */
+      deadlineMs?: number;
+      now?: () => number;
     },
   ) {
     this.fetchImpl = opts.fetchImpl ?? ((url, init) => fetch(url, init));
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT_MS;
+    this.deadlineMs = opts.deadlineMs ?? CALL_DEADLINE_MS;
+    this.now = opts.now ?? Date.now;
   }
 
   /**
    * Runs one request (including reading its body) and turns a timeout or network failure into an
    * actionable error. URL building happens outside, so parameter errors keep their own messages.
    */
-  private async guarded<T>(op: OperationDef, run: () => Promise<T>): Promise<T> {
+  private async guarded<T>(op: OperationDef, run: (deadline: number) => Promise<T>): Promise<T> {
+    const started = this.now();
     try {
-      return await run();
+      return await run(started + this.deadlineMs);
     } catch (err) {
       if (err instanceof GoreloError) throw err;
       const where = `${op.tool}.${op.action} (${op.method} ${op.path})`;
@@ -102,7 +111,7 @@ export class GoreloClient {
             : " Check the network connection and the region, then retry.";
       if (isAbort(err)) {
         throw new GoreloError(
-          `Gorelo request timed out after ${Math.round(this.timeoutMs / 1000)}s for ${where}.${advice}`,
+          `Gorelo request timed out after ${Math.round((this.now() - started) / 1000)}s for ${where}.${advice}`,
           0,
         );
       }
@@ -142,7 +151,8 @@ export class GoreloClient {
     return `${this.opts.baseUrl}${path}${qs ? `?${qs}` : ""}`;
   }
 
-  private async send(op: OperationDef, url: string, init: RequestInit): Promise<Response> {
+  /** Sends the request, retrying 429s for as long as the waits fit before `deadline`. */
+  private async send(op: OperationDef, url: string, init: RequestInit, deadline: number): Promise<Response> {
     const headers = {
       "X-API-Key": this.opts.apiKey,
       Accept: "application/json",
@@ -153,7 +163,7 @@ export class GoreloClient {
         ...init,
         method: op.method,
         headers,
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(Math.max(1, Math.min(this.timeoutMs, deadline - this.now()))),
       });
       if (res.status !== 429) return res;
       if (attempt >= MAX_RETRIES) {
@@ -164,7 +174,13 @@ export class GoreloClient {
       }
       const retryAfter = Number(res.headers.get("retry-after"));
       const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** attempt;
-      await this.sleep(Math.min(wait, MAX_WAIT_MS));
+      if (this.now() + wait > deadline) {
+        throw new GoreloError(
+          `Gorelo rate limit hit (429) for ${op.tool}.${op.action}, and Gorelo asked to wait ${Math.ceil(wait / 1000)}s, longer than this call has left. Wait that long and retry, or narrow the request with filters.`,
+          429,
+        );
+      }
+      await this.sleep(wait);
     }
   }
 
@@ -249,13 +265,13 @@ export class GoreloClient {
       body === undefined
         ? {}
         : { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } };
-    return this.guarded(op, async () => this.unwrap(op, await this.send(op, url, init)));
+    return this.guarded(op, async (deadline) => this.unwrap(op, await this.send(op, url, init, deadline)));
   }
 
   async binary(op: OperationDef, params: Record<string, unknown>): Promise<Uint8Array> {
     const url = this.buildUrl(op, params);
-    return this.guarded(op, async () => {
-      const res = await this.send(op, url, {});
+    return this.guarded(op, async (deadline) => {
+      const res = await this.send(op, url, {}, deadline);
       if (!res.ok) return this.fail(op, res);
       return new Uint8Array(await res.arrayBuffer());
     });
@@ -263,6 +279,8 @@ export class GoreloClient {
 
   async multipart(op: OperationDef, form: FormData): Promise<Page> {
     const url = this.buildUrl(op, {});
-    return this.guarded(op, async () => this.unwrap(op, await this.send(op, url, { body: form })));
+    return this.guarded(op, async (deadline) =>
+      this.unwrap(op, await this.send(op, url, { body: form }, deadline)),
+    );
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GoreloClient, GoreloError } from "../src/http.js";
+import { CALL_DEADLINE_MS, GoreloClient, GoreloError } from "../src/http.js";
 import type { OperationDef } from "../src/types.js";
 
 const listTickets: OperationDef = {
@@ -246,6 +246,105 @@ describe("binary", () => {
     expect(
       Array.from(await c.binary({ ...getComment, response: "binary" }, { ticketId: 1, commentId: 2 })),
     ).toEqual([37, 80, 68, 70]);
+  });
+});
+
+describe("overall deadline", () => {
+  /** Client on a fake clock that only moves when the client sleeps or a response takes `latency`. */
+  function timed(responses: Response[], opts: { deadlineMs?: number; latency?: number } = {}) {
+    const f = fakeFetch(responses);
+    const sleeps: number[] = [];
+    const timeouts: number[] = [];
+    let clock = 1000;
+    const realTimeout = AbortSignal.timeout;
+    const c = new GoreloClient({
+      apiKey: "k",
+      baseUrl: "https://x.test",
+      ...(opts.deadlineMs === undefined ? {} : { deadlineMs: opts.deadlineMs }),
+      now: () => clock,
+      sleep: async (ms) => {
+        sleeps.push(ms);
+        clock += ms;
+      },
+      fetchImpl: async (url, init) => {
+        clock += opts.latency ?? 0;
+        return f.fetchImpl(url, init);
+      },
+    });
+    const run = async <T>(fn: () => Promise<T>): Promise<T> => {
+      AbortSignal.timeout = (ms: number) => {
+        timeouts.push(ms);
+        return realTimeout.call(AbortSignal, ms);
+      };
+      try {
+        return await fn();
+      } finally {
+        AbortSignal.timeout = realTimeout;
+      }
+    };
+    return { c, calls: f.calls, sleeps, timeouts, run };
+  }
+
+  it("defaults to about a minute", () => {
+    expect(CALL_DEADLINE_MS).toBe(60000);
+  });
+
+  it("stops retrying when the next wait would pass the deadline and says how long to wait", async () => {
+    const t = timed([
+      json(429, {}, { "retry-after": "25" }),
+      json(429, {}, { "retry-after": "25" }),
+      json(429, {}, { "retry-after": "25" }),
+      json(200, { Data: [] }),
+    ]);
+    const err = await t.run(() => t.c.json(listTickets, {})).catch((e) => e);
+    expect(err).toBeInstanceOf(GoreloError);
+    expect(err.status).toBe(429);
+    expect(err.message).toMatch(/rate limit/i);
+    expect(err.message).toContain("gorelo_tickets.list");
+    expect(err.message).toContain("wait 25s");
+    expect(t.sleeps).toEqual([25000, 25000]);
+    expect(t.calls).toHaveLength(3);
+  });
+
+  it("does not wait at all when Gorelo asks for longer than the whole deadline", async () => {
+    const t = timed([json(429, {}, { "retry-after": "120" }), json(200, { Data: [] })]);
+    const err = await t.run(() => t.c.json(listTickets, {})).catch((e) => e);
+    expect(err.status).toBe(429);
+    expect(err.message).toContain("wait 120s");
+    expect(t.sleeps).toEqual([]);
+    expect(t.calls).toHaveLength(1);
+  });
+
+  it("still retries waits that fit", async () => {
+    const t = timed([json(429, {}, { "retry-after": "2" }), json(200, { Data: [7] })], { deadlineMs: 5000 });
+    expect((await t.run(() => t.c.json(listTickets, {}))).data).toEqual([7]);
+    expect(t.sleeps).toEqual([2000]);
+  });
+
+  it("caps each attempt's timeout to the time remaining", async () => {
+    const t = timed([json(429, {}, { "retry-after": "20" }), json(200, { Data: [] })], { latency: 5000 });
+    await t.run(() => t.c.json(listTickets, {}));
+    // First attempt has the full per-request timeout; the second starts 25s in, leaving 35s.
+    expect(t.timeouts).toEqual([30000, 30000]);
+
+    const late = timed([json(429, {}, { "retry-after": "25" }), json(200, { Data: [] })], { latency: 10000 });
+    await late.run(() => late.c.json(listTickets, {}));
+    expect(late.timeouts).toEqual([30000, 25000]);
+  });
+
+  it("times out a hanging request at the deadline when that is sooner than the timeout", async () => {
+    const c = new GoreloClient({
+      apiKey: "k",
+      baseUrl: "https://x.test",
+      deadlineMs: 20,
+      fetchImpl: (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+        }),
+    });
+    const started = Date.now();
+    await expect(c.json(listTickets, {})).rejects.toThrow(/timed out/);
+    expect(Date.now() - started).toBeLessThan(5000);
   });
 });
 
