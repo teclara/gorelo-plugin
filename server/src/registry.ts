@@ -1,9 +1,9 @@
-import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 import { Ajv, type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
-import { appendAudit } from "./audit.js";
+import { appendAudit, ensurePrivateDir, PRIVATE_FILE_MODE } from "./audit.js";
 import type { GoreloClient } from "./http.js";
 import { collectPages, DEFAULT_LIMIT, MAX_LIMIT, markUntrusted, PAGE_SIZE, renderResult } from "./shape.js";
 import { type JsonSchema, type OperationDef, TIER_RANK, type Tier } from "./types.js";
@@ -289,13 +289,13 @@ export class Registry {
     if (op.response === "binary") {
       const bytes = await client.binary(op, rest);
       const dir = join(dataDir, "downloads");
-      await mkdir(dir, { recursive: true });
+      await ensurePrivateDir(dir);
       const id = Object.values(rest).map(String).join("-") || "file";
       const path = join(
         dir,
         `${op.path.includes("invoices") ? "invoice" : op.tool.replace(/^gorelo_/, "")}-${id}.pdf`,
       );
-      await writeFile(path, bytes);
+      await writeFile(path, bytes, { mode: PRIVATE_FILE_MODE });
       return { path, bytes: bytes.length };
     }
 

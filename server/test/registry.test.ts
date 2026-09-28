@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, symlink, truncate, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, stat, symlink, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -351,5 +351,50 @@ describe("call", () => {
     expect(res.isError).toBe(true);
     expect(res.text).toMatch(/body/);
     expect(calls).toHaveLength(0);
+  });
+});
+
+/**
+ * Tool names are resolved from a full-tier registry by prefix and action rather than hardcoded,
+ * so these tests keep working if a tool is renamed or its write actions move to another tool.
+ */
+function toolFor(prefix: string, action: string): string {
+  const full = new Registry(ops, "full", {
+    client: new GoreloClient({ apiKey: "k", baseUrl: "https://x.test" }),
+    dataDir: tmpdir(),
+  });
+  const found = full
+    .listTools()
+    .find(
+      (t) =>
+        t.name.startsWith(prefix) &&
+        ((t.inputSchema.properties as any).action.enum as string[]).includes(action),
+    );
+  if (!found) throw new Error(`no tool starting with ${prefix} has action ${action}`);
+  return found.name;
+}
+
+const fileMode = async (path: string) => (await stat(path)).mode & 0o777;
+const pdfResponse = () => new Response(new Uint8Array([37, 80, 68, 70]), { status: 200 });
+
+// POSIX permission bits do not exist on Windows, where chmod is a best-effort no-op.
+describe.skipIf(process.platform === "win32")("download permissions", () => {
+  it("creates the downloads directory as 0700 and the file as 0600", async () => {
+    const { reg, dataDir } = await setup("read", [pdfResponse()]);
+    const res = await reg.call(toolFor("gorelo_invoices", "pdf"), {
+      action: "pdf",
+      params: { invoiceId: 42 },
+    });
+    const { path } = JSON.parse(res.text);
+    expect(await fileMode(join(dataDir, "downloads"))).toBe(0o700);
+    expect(await fileMode(path)).toBe(0o600);
+  });
+
+  it("tightens a downloads directory that already exists with a looser mode", async () => {
+    const { reg, dataDir } = await setup("read", [pdfResponse()]);
+    await mkdir(join(dataDir, "downloads"));
+    await chmod(join(dataDir, "downloads"), 0o755);
+    await reg.call(toolFor("gorelo_invoices", "pdf"), { action: "pdf", params: { invoiceId: 42 } });
+    expect(await fileMode(join(dataDir, "downloads"))).toBe(0o700);
   });
 });
