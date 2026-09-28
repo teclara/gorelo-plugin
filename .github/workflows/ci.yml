@@ -8,8 +8,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run typecheck
@@ -20,5 +20,5 @@ jobs:
         run: git diff --exit-code server/dist server/generated
       - name: Validate plugin
         run: |
-          npx -y @anthropic-ai/claude-code plugin validate .
-          npx -y @anthropic-ai/claude-code plugin validate .claude-plugin/plugin.json
+          npx -y @anthropic-ai/claude-code@2.1.284 plugin validate .
+          npx -y @anthropic-ai/claude-code@2.1.284 plugin validate .claude-plugin/plugin.json
