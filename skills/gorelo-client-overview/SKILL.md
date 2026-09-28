@@ -1,6 +1,6 @@
 ---
 name: gorelo-client-overview
-description: One-page briefing on a single Gorelo client — contacts, sites, devices, open tickets, contracts, uptime and recent time. Use for "tell me about <client>", "prep for my call with <client>", "client summary".
+description: One-page briefing on a single Gorelo client — contacts, sites, devices, open tickets, contracts, uptime and recent time. Use for "tell me about Acme", "prep for my call with a client", "client summary".
 ---
 
 # Gorelo client overview

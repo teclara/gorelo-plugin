@@ -23,6 +23,10 @@ describe("skills", () => {
     it(`${name} has name/description frontmatter`, () => {
       expect(text).toMatch(new RegExp(`^---\\nname: ${name}\\ndescription: .{40,}\\n`));
     });
+    it(`${name} description has no XML-like tags (claude.ai upload rejects them)`, () => {
+      const description = text.match(/^description: (.*)$/m)?.[1] ?? "";
+      expect(description).not.toMatch(/[<>]/);
+    });
     it(`${name} only references real tool.actions`, () => {
       const refs = [...text.matchAll(/`(gorelo_[a-z_]+)\.([a-z_]+)`/g)].map((m) => `${m[1]}.${m[2]}`);
       expect(refs.length).toBeGreaterThan(0);
