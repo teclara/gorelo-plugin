@@ -10,7 +10,7 @@
       "includes": ["server/test/**"],
       "linter": {
         "rules": {
-          "suspicious": { "noExplicitAny": "off" },
+          "suspicious": { "noExplicitAny": "off", "noTemplateCurlyInString": "off" },
           "style": { "noNonNullAssertion": "off" }
         }
       }
