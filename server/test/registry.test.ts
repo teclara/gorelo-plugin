@@ -188,7 +188,7 @@ describe("call", () => {
       StatusId: 1,
     });
     const audit = (await readFile(join(dataDir, "audit.jsonl"), "utf8")).trim();
-    expect(JSON.parse(audit)).toMatchObject({ tool: "gorelo_invoices", action: "create", status: 200 });
+    expect(JSON.parse(audit)).toMatchObject({ tool: "gorelo_invoices", action: "create", status: "ok" });
   });
 
   it("rejects a caller-supplied StatusId on draft invoice create", async () => {
@@ -230,7 +230,7 @@ describe("call", () => {
     expect((form.get("file") as File).name).toBe("a.txt");
     // The audit entry records which local file was sent.
     const audit = JSON.parse((await readFile(join(dataDir, "audit.jsonl"), "utf8")).trim());
-    expect(audit).toMatchObject({ tool: "gorelo_attachments", action: "upload", status: 200 });
+    expect(audit).toMatchObject({ tool: "gorelo_attachments", action: "upload", status: "ok" });
     expect(audit.params.file_path).toBe(file);
   });
 

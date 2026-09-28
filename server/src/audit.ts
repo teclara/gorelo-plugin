@@ -5,7 +5,11 @@ export interface AuditEntry {
   tool: string;
   action: string;
   params: unknown;
-  status: number | "error";
+  /**
+   * "ok": Gorelo accepted the call. "error": it was sent and failed (or may have timed out).
+   * The HTTP status code is deliberately not recorded, because the client does not report it.
+   */
+  status: "ok" | "error";
   error?: string;
 }
 

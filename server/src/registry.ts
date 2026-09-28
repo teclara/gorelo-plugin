@@ -260,7 +260,7 @@ export class Registry {
         await appendAudit(
           this.deps.dataDir,
           execError === undefined
-            ? { tool, action, params, status: 200 }
+            ? { tool, action, params, status: "ok" }
             : { tool, action, params, status: "error", error: execError },
         );
       } catch (auditErr) {
