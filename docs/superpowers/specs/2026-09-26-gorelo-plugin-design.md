@@ -1,7 +1,7 @@
 # Gorelo Plugin for Claude Code — Design
 
 - **Date:** 2026-09-26
-- **Repo:** `teclara/gorelo-plugin` (private until Gorelo confirms they have no objection)
+- **Repo:** `teclara/gorelo-plugin` (public; Gorelo confirmed they have no objection)
 - **Status:** Approved design, pending implementation plan
 
 ## 1. Intent
