@@ -26,6 +26,35 @@ function read(env: Record<string, string | undefined>, name: string): string | u
   return value;
 }
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * The API key is sent to the base URL, so an override must be Gorelo over https.
+ * Loopback is the one exception, over http or https, for local testing.
+ */
+function checkBaseUrl(value: string): void {
+  const hint = "Unset it to use the region's default.";
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new ConfigError(`GORELO_BASE_URL is not a valid URL (got "${value}"). ${hint}`);
+  }
+  const host = url.hostname.toLowerCase();
+  const loopback = LOOPBACK_HOSTS.has(host) && (url.protocol === "http:" || url.protocol === "https:");
+  if (!loopback && url.protocol !== "https:") {
+    throw new ConfigError(`GORELO_BASE_URL must use https (got "${value}"). ${hint}`);
+  }
+  if (!loopback && host !== "gorelo.io" && !host.endsWith(".gorelo.io")) {
+    throw new ConfigError(
+      `GORELO_BASE_URL must be on gorelo.io or a subdomain of it (got host "${host}"); the API key is not sent anywhere else. ${hint}`,
+    );
+  }
+  if (url.username || url.password) {
+    throw new ConfigError(`GORELO_BASE_URL must not contain credentials. ${hint}`);
+  }
+}
+
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   const apiKey = read(env, "GORELO_API_KEY");
   if (!apiKey) throw new ConfigError(`Gorelo API key is not set. ${SETUP_HINT}`);
@@ -40,10 +69,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     throw new ConfigError(`Access tier must be one of read, write, full (got "${tier}"). ${SETUP_HINT}`);
   }
 
-  const baseUrl = (read(env, "GORELO_BASE_URL") ?? REGIONS[region as keyof typeof REGIONS]).replace(
-    /\/+$/,
-    "",
-  );
+  const override = read(env, "GORELO_BASE_URL");
+  if (override) checkBaseUrl(override);
+  const baseUrl = (override ?? REGIONS[region as keyof typeof REGIONS]).replace(/\/+$/, "");
   const dataDir = read(env, "GORELO_DATA_DIR") ?? join(homedir(), ".gorelo-plugin");
 
   return { apiKey, baseUrl, region: region as keyof typeof REGIONS, tier, dataDir };

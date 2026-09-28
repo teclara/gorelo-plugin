@@ -41,4 +41,36 @@ describe("loadConfig", () => {
       "http://127.0.0.1:9999",
     );
   });
+
+  it.each([
+    ["https://api.usw.gorelo.io", "https://api.usw.gorelo.io"],
+    ["https://API.EUW.Gorelo.io/", "https://API.EUW.Gorelo.io"],
+    ["https://gorelo.io/api//", "https://gorelo.io/api"],
+    ["http://localhost:8080", "http://localhost:8080"],
+    ["https://localhost", "https://localhost"],
+    ["http://[::1]:3000/", "http://[::1]:3000"],
+  ])("accepts base URL %s", (url, expected) => {
+    expect(loadConfig({ GORELO_API_KEY: "k", GORELO_BASE_URL: url }).baseUrl).toBe(expected);
+  });
+
+  it.each([
+    ["not a url", /not a valid URL/],
+    ["api.usw.gorelo.io", /not a valid URL/],
+    ["http://api.usw.gorelo.io", /must use https/],
+    ["ftp://localhost/", /must use https/],
+    ["file:///etc/passwd", /must use https/],
+    ["https://evil.example", /gorelo\.io/],
+    ["https://gorelo.io.evil.example", /gorelo\.io/],
+    ["https://evilgorelo.io", /gorelo\.io/],
+    ["https://api.gorelo.io@evil.example/", /gorelo\.io/],
+    ["https://user:pass@api.usw.gorelo.io", /credentials/],
+    ["http://127.0.0.2:9999", /must use https/],
+    ["http://localhost.evil.example", /must use https/],
+    ["https://192.168.1.10", /gorelo\.io/],
+  ])("rejects base URL %s so the API key is not sent there", (url, message) => {
+    const load = () => loadConfig({ GORELO_API_KEY: "k", GORELO_BASE_URL: url });
+    expect(load).toThrow(ConfigError);
+    expect(load).toThrow(message);
+    expect(load).toThrow(/GORELO_BASE_URL/);
+  });
 });
