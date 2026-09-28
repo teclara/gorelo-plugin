@@ -2,12 +2,18 @@ name: spec-drift
 on:
   schedule: [{ cron: "0 13 * * 1" }]
   workflow_dispatch:
-permissions:
-  contents: write
-  pull-requests: write
+# Nothing by default; the job asks for exactly what it uses.
+permissions: {}
+env:
+  ISSUE_TITLE: "Gorelo API spec drift: breaking change blocks regeneration"
+  ISSUE_LABEL: spec-drift
 jobs:
   drift:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the spec-drift branch
+      pull-requests: write # open or update the drift PR
+      issues: write # report drift that cannot be regenerated
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -20,8 +26,51 @@ jobs:
           if ! cmp -s <(jq -S .paths usw.swagger.json) <(jq -S .paths aue.swagger.json); then
             echo "::warning::usw and aue specs differ; generating from usw"
           fi
+      # spec-diff exits non-zero when the new spec cannot be planned: Gorelo renamed or removed an
+      # operation that has an override, two operations map to one action name, or a $ref does not
+      # resolve. That is the breaking kind of drift and there is no regenerated code to put in a PR,
+      # so it is reported as an issue and the job still fails.
       - name: Diff
-        run: npx tsx server/scripts/spec-diff.ts usw.swagger.json > drift.md
+        id: diff
+        run: |
+          if ! npx tsx server/scripts/spec-diff.ts usw.swagger.json > drift.md 2> diff-error.log; then
+            cat diff-error.log >&2
+            exit 1
+          fi
+          cat diff-error.log >&2
+      - name: Report breaking drift in an issue
+        if: failure() && steps.diff.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "The spec-drift run could not plan the current Gorelo API spec, so nothing was regenerated and no pull request was opened."
+            echo
+            echo "This usually means Gorelo renamed or removed an operation that has an entry in \`server/tool-map.ts\`, two operations now map to the same action name, or the spec has a \`\$ref\` that does not resolve."
+            echo
+            echo "Run: $RUN_URL"
+            echo
+            echo '```'
+            # The text comes from a remote spec: keep it inside the fence and within the body limit.
+            # shellcheck disable=SC2016
+            if [ -s diff-error.log ]; then tail -c 20000 diff-error.log | sed 's/```/`` `/g'; else echo "(no output captured)"; fi
+            echo '```'
+            echo
+            echo "To reproduce: download the spec and run \`npm run spec-diff -- usw.swagger.json\`."
+          } > issue.md
+          # One open issue per problem: reuse it if it is already there.
+          number=$(gh issue list --state open --limit 200 --json number,title \
+            --jq 'map(select(.title == env.ISSUE_TITLE)) | .[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body-file issue.md
+          else
+            gh label create "$ISSUE_LABEL" --color D93F0B \
+              --description "Gorelo API spec drift" 2>/dev/null || true
+            gh issue create --title "$ISSUE_TITLE" --body-file issue.md --label "$ISSUE_LABEL" ||
+              gh issue create --title "$ISSUE_TITLE" --body-file issue.md
+          fi
       # PRs opened with GITHUB_TOKEN do not trigger ci.yml, so every check runs here and failures
       # are reported in the PR body (and the PR opened as a draft) instead of stopping the job.
       - name: Regenerate, build, test
