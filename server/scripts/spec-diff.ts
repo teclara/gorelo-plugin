@@ -55,9 +55,22 @@ export function formatDiff(d: Diff): string {
     .join("\n\n");
 }
 
-// CLI: tsx server/scripts/spec-diff.ts <new-spec.json>  → prints markdown; exit 0 always
+// CLI: tsx server/scripts/spec-diff.ts <new-spec.json>  → prints markdown on stdout.
+// Exits 2 on a usage error and 1 when the spec cannot be planned (a removed or renamed operation
+// that has an override, a duplicate action name, an unresolved $ref): that is breaking drift, and
+// the spec-drift workflow turns the message into an issue.
 if (process.argv[1]?.endsWith("spec-diff.ts")) {
-  const { OPERATIONS } = await import("../generated/operations.js");
-  const next = planOperations(JSON.parse(await readFile(process.argv[2]!, "utf8")) as OpenApiSpec);
-  console.log(formatDiff(diffOperations(OPERATIONS, next)));
+  const specPath = process.argv[2];
+  if (!specPath) {
+    console.error("Usage: tsx server/scripts/spec-diff.ts <new-spec.json>");
+    process.exit(2);
+  }
+  try {
+    const { OPERATIONS } = await import("../generated/operations.js");
+    const next = planOperations(JSON.parse(await readFile(specPath, "utf8")) as OpenApiSpec);
+    console.log(formatDiff(diffOperations(OPERATIONS, next)));
+  } catch (err) {
+    console.error(`spec-diff failed: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
 }

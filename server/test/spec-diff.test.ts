@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { planOperations } from "../scripts/codegen/plan.js";
 import { diffOperations, formatDiff } from "../scripts/spec-diff.js";
@@ -51,5 +55,33 @@ describe("diffOperations", () => {
 
   it("reports nothing for identical input", () => {
     expect(diffOperations(before, before)).toEqual({ added: [], removed: [], changed: [] });
+  });
+});
+
+describe("spec-diff CLI", () => {
+  const run = (...args: string[]) =>
+    spawnSync(process.execPath, ["--import", "tsx", "server/scripts/spec-diff.ts", ...args], {
+      encoding: "utf8",
+    });
+
+  it("exits 2 with a usage message when the spec path is missing", () => {
+    const r = run();
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Usage: tsx server/scripts/spec-diff.ts <new-spec.json>");
+    expect(r.stdout).toBe("");
+  });
+
+  it("exits 1 and names the override when the spec drops an overridden operation", () => {
+    const dir = mkdtempSync(join(tmpdir(), "spec-diff-"));
+    try {
+      const path = join(dir, "spec.json");
+      writeFileSync(path, JSON.stringify({ openapi: "3.0.1", paths: {} }));
+      const r = run(path);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/^spec-diff failed: Unused override \S+/);
+      expect(r.stdout).toBe("");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
