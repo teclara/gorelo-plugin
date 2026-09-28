@@ -1,8 +1,8 @@
-import { chmod, mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, stat, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { appendAudit, redact } from "../src/audit.js";
+import { appendAudit, MAX_AUDIT_BYTES, redact } from "../src/audit.js";
 
 describe("redact", () => {
   it("masks secret-looking keys at any depth", () => {
@@ -63,5 +63,48 @@ describe.skipIf(process.platform === "win32")("audit log permissions", () => {
     expect(await mode(join(dataDir, "audit.jsonl"))).toBe(0o600);
     const lines = (await readFile(join(dataDir, "audit.jsonl"), "utf8")).trim().split("\n");
     expect(lines).toHaveLength(2);
+  });
+});
+
+describe("audit log rotation", () => {
+  const entry = { tool: "gorelo_tickets", action: "create", params: {}, status: "ok" as const };
+
+  it("limits the log to about 5 MB", () => {
+    expect(MAX_AUDIT_BYTES).toBe(5 * 1024 * 1024);
+  });
+
+  it("keeps appending while the log is at or under the limit", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "gorelo-audit-"));
+    const log = join(dir, "audit.jsonl");
+    await writeFile(log, "");
+    await truncate(log, MAX_AUDIT_BYTES);
+    await appendAudit(dir, entry);
+    expect((await stat(log)).size).toBeGreaterThan(MAX_AUDIT_BYTES);
+    await expect(stat(`${log}.1`)).rejects.toThrow(/ENOENT/);
+  });
+
+  it("renames a log over the limit to audit.jsonl.1, replacing the previous one, then appends", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "gorelo-audit-"));
+    const log = join(dir, "audit.jsonl");
+    await writeFile(`${log}.1`, "previous rotation\n");
+    await writeFile(log, '{"old":true}\n');
+    await truncate(log, MAX_AUDIT_BYTES + 1);
+    await appendAudit(dir, entry);
+    const rotated = await readFile(`${log}.1`, "utf8");
+    expect(rotated.length).toBe(MAX_AUDIT_BYTES + 1);
+    expect(rotated.startsWith('{"old":true}\n')).toBe(true);
+    const lines = (await readFile(log, "utf8")).trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0]!)).toMatchObject({ action: "create", status: "ok" });
+  });
+
+  it.skipIf(process.platform === "win32")("keeps the rotated log owner-only", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "gorelo-audit-"));
+    const log = join(dir, "audit.jsonl");
+    await writeFile(log, "");
+    await chmod(log, 0o644);
+    await truncate(log, MAX_AUDIT_BYTES + 1);
+    await appendAudit(dir, entry);
+    expect((await stat(`${log}.1`)).mode & 0o777).toBe(0o600);
   });
 });

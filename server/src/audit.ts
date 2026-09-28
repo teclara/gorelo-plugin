@@ -1,4 +1,4 @@
-import { chmod, type FileHandle, mkdir, open } from "node:fs/promises";
+import { chmod, type FileHandle, mkdir, open, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 export interface AuditEntry {
@@ -47,10 +47,29 @@ export async function ensurePrivateDir(dir: string): Promise<void> {
   await tighten(dir, PRIVATE_DIR_MODE);
 }
 
+/** Size past which audit.jsonl is rotated, so at most about twice this is kept on disk. */
+export const MAX_AUDIT_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Moves a log over MAX_AUDIT_BYTES to `<log>.1`, replacing the previous rotation. Best effort:
+ * a log that cannot be rotated is still appended to, since losing the entry would be worse.
+ */
+async function rotate(log: string): Promise<void> {
+  try {
+    if ((await stat(log)).size <= MAX_AUDIT_BYTES) return;
+    await tighten(log, PRIVATE_FILE_MODE);
+    await rename(log, `${log}.1`);
+  } catch {
+    // No log yet, or it cannot be moved.
+  }
+}
+
 export async function appendAudit(dataDir: string, entry: AuditEntry): Promise<void> {
   await ensurePrivateDir(dataDir);
   const line = JSON.stringify({ ts: new Date().toISOString(), ...entry, params: redact(entry.params) });
-  const handle = await open(join(dataDir, "audit.jsonl"), "a", PRIVATE_FILE_MODE);
+  const log = join(dataDir, "audit.jsonl");
+  await rotate(log);
+  const handle = await open(log, "a", PRIVATE_FILE_MODE);
   try {
     await tighten(handle, PRIVATE_FILE_MODE);
     await handle.appendFile(`${line}\n`, "utf8");
