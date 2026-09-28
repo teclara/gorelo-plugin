@@ -6,38 +6,38 @@ const name = (o: { tool: string; action: string }) => `${o.tool}.${o.action}`;
 
 /** Every non-GET action reachable below the full tier. Adding one here is a deliberate review decision. */
 const NON_GET_OUTSIDE_ADMIN = [
-  "gorelo_alerts.create",
-  "gorelo_attachments.upload",
-  "gorelo_clients.create",
-  "gorelo_clients.update",
-  "gorelo_contacts.create",
-  "gorelo_contacts.update",
-  "gorelo_forms.create_submission_links",
-  "gorelo_invoices.create",
-  "gorelo_project_tasks.create",
-  "gorelo_project_tasks.create_comments",
-  "gorelo_project_tasks.create_conversations_approval",
-  "gorelo_project_tasks.create_conversations_side_conversation",
-  "gorelo_project_tasks.update",
-  "gorelo_projects.create",
-  "gorelo_projects.create_comments",
-  "gorelo_projects.create_sections",
-  "gorelo_projects.update",
-  "gorelo_projects.update_sections",
-  "gorelo_tickets.create",
-  "gorelo_tickets.create_comments",
-  "gorelo_tickets.create_conversations_approval",
-  "gorelo_tickets.create_conversations_side_conversation",
-  "gorelo_tickets.update",
-  "gorelo_time_entries.create",
-  "gorelo_time_entries.update",
-  "gorelo_uptime.create",
-  "gorelo_uptime.update",
+  "gorelo_alerts_write.create",
+  "gorelo_attachments_write.upload",
+  "gorelo_clients_write.create",
+  "gorelo_clients_write.update",
+  "gorelo_contacts_write.create",
+  "gorelo_contacts_write.update",
+  "gorelo_forms_write.create_submission_links",
+  "gorelo_invoices_write.create",
+  "gorelo_project_tasks_write.create",
+  "gorelo_project_tasks_write.create_comments",
+  "gorelo_project_tasks_write.create_conversations_approval",
+  "gorelo_project_tasks_write.create_conversations_side_conversation",
+  "gorelo_project_tasks_write.update",
+  "gorelo_projects_write.create",
+  "gorelo_projects_write.create_comments",
+  "gorelo_projects_write.create_sections",
+  "gorelo_projects_write.update",
+  "gorelo_projects_write.update_sections",
+  "gorelo_tickets_write.create",
+  "gorelo_tickets_write.create_comments",
+  "gorelo_tickets_write.create_conversations_approval",
+  "gorelo_tickets_write.create_conversations_side_conversation",
+  "gorelo_tickets_write.update",
+  "gorelo_time_entries_write.create",
+  "gorelo_time_entries_write.update",
+  "gorelo_uptime_write.create",
+  "gorelo_uptime_write.update",
 ];
 
 describe("generated operation invariants", () => {
-  it("write-tier gorelo_invoices.create forces a Draft and cannot be given a StatusId", () => {
-    const create = OPERATIONS.find((o) => name(o) === "gorelo_invoices.create");
+  it("write-tier gorelo_invoices_write.create forces a Draft and cannot be given a StatusId", () => {
+    const create = OPERATIONS.find((o) => name(o) === "gorelo_invoices_write.create");
     expect(create?.tier).toBe("write");
     expect(create?.forceBody?.StatusId).toBe(1);
     const props = (create?.body?.schema.properties ?? {}) as Record<string, unknown>;
@@ -56,6 +56,14 @@ describe("generated operation invariants", () => {
 
   it("every read-tier op is a GET", () => {
     for (const o of OPERATIONS.filter((x) => x.tier === "read")) expect(o.method, name(o)).toBe("GET");
+  });
+
+  it("tools split reads from writes so the read tools can be auto-allowed", () => {
+    for (const o of OPERATIONS) {
+      if (o.tool === "gorelo_admin") continue;
+      if (o.tool.endsWith("_write")) expect(o.method, name(o)).not.toBe("GET");
+      else expect(o.method, name(o)).toBe("GET");
+    }
   });
 
   it("non-GET actions outside gorelo_admin match the reviewed allowlist", () => {

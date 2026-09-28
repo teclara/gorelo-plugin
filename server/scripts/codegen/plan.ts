@@ -1,5 +1,13 @@
 import type { BodyDef, HttpMethod, OperationDef, ParamDef, Tier } from "../../src/types.js";
-import { FULL_BY_DEFAULT_TOOLS, OVERRIDES, type Override, resolveRoute } from "../../tool-map.js";
+import {
+  ADMIN_TOOL,
+  FULL_BY_DEFAULT_TOOLS,
+  OVERRIDES,
+  type Override,
+  resolveRoute,
+  toolFor,
+  WRITE_SUFFIX,
+} from "../../tool-map.js";
 import { cleanDescription, normalizeSchema } from "./schema.js";
 
 export type OpenApiSpec = {
@@ -44,6 +52,44 @@ export function defaultTier(method: HttpMethod, tool: string): Tier {
   return "write";
 }
 
+export interface Placement {
+  tool: string;
+  action: string;
+  tier: Tier;
+  forceBody?: Record<string, unknown>;
+}
+
+/**
+ * Where one spec operation lands: its tool, action and tier, from tool-map.ts alone. An operation
+ * with adminCopy lands twice. Needs no spec, so a test can hold the generated file to it offline.
+ */
+export function placements(
+  operationId: string,
+  method: HttpMethod,
+  path: string,
+  overrides: Record<string, Override> = OVERRIDES,
+): Placement[] {
+  const override = overrides[operationId] ?? {};
+  const { tool, base } = resolveRoute(path);
+  if (tool === ADMIN_TOOL || tool.endsWith(WRITE_SUFFIX))
+    throw new Error(`${path} maps to the reserved tool name ${tool}; add a ROUTES entry in tool-map.ts`);
+  const action = override.action ?? autoAction(method, path, base);
+  const tier = override.tier ?? defaultTier(method, tool);
+  const admin: Placement = {
+    tool: ADMIN_TOOL,
+    action: `${tool.replace(/^gorelo_/, "")}_${action}`,
+    tier: "full",
+  };
+  if (tier === "full") return [admin];
+  const own: Placement = {
+    tool: toolFor(tool, method),
+    action,
+    tier,
+    ...(override.forceBody ? { forceBody: override.forceBody } : {}),
+  };
+  return override.adminCopy ? [own, admin] : [own];
+}
+
 function planBody(op: RawOp, components: Record<string, unknown>, strip: string[]): BodyDef | undefined {
   const content = op.requestBody?.content;
   if (!content) return undefined;
@@ -79,10 +125,6 @@ export function planOperations(
       if (!op) continue;
       const operationId = op.operationId ?? `${method.toLowerCase()}_${path}`;
       if (Object.hasOwn(overrides, operationId)) used.add(operationId);
-      const override = overrides[operationId] ?? {};
-      const { tool, base } = resolveRoute(path);
-      const action = override.action ?? autoAction(method, path, base);
-      const tier = override.tier ?? defaultTier(method, tool);
 
       const rawParams = [...shared, ...(op.parameters ?? [])];
       const params: ParamDef[] = rawParams
@@ -114,36 +156,11 @@ export function planOperations(
         paginated: rawParams.some((p) => p.name === "Cursor"),
       } as const;
 
-      const resource = tool.replace(/^gorelo_/, "");
-      const strip = Object.keys(override.forceBody ?? {});
-
-      if (tier === "full") {
-        out.push({
-          ...common,
-          tool: "gorelo_admin",
-          action: `${resource}_${action}`,
-          tier,
-          body: planBody(op, components, []),
-        });
-      } else {
-        const body = planBody(op, components, strip);
-        out.push({
-          ...common,
-          tool,
-          action,
-          tier,
-          ...(body ? { body } : {}),
-          ...(override.forceBody ? { forceBody: override.forceBody } : {}),
-        });
-        if (override.adminCopy) {
-          out.push({
-            ...common,
-            tool: "gorelo_admin",
-            action: `${resource}_${action}`,
-            tier: "full",
-            body: planBody(op, components, []),
-          });
-        }
+      for (const placement of placements(operationId, method, path, overrides)) {
+        // Forced fields are taken out of the schema, so the caller cannot even name them.
+        const { forceBody, ...where } = placement;
+        const body = planBody(op, components, Object.keys(forceBody ?? {}));
+        out.push({ ...common, ...where, ...(body ? { body } : {}), ...(forceBody ? { forceBody } : {}) });
       }
     }
   }
@@ -154,7 +171,6 @@ export function planOperations(
     if (seen.has(key))
       throw new Error(`Duplicate action ${key}; add an OVERRIDES entry in server/tool-map.ts`);
     seen.add(key);
-    if (op.body === undefined) delete op.body;
   }
   for (const id of Object.keys(overrides)) {
     if (!used.has(id))
