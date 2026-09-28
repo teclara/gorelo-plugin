@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { autoAction, planOperations } from "../scripts/codegen/plan.js";
-import { OVERRIDES, resolveRoute } from "../tool-map.js";
+import { OVERRIDES, resolveRoute, toolFor } from "../tool-map.js";
 import spec from "./fixtures/mini-spec.json" with { type: "json" };
 
 const ops = planOperations(spec as never);
@@ -36,7 +36,34 @@ describe("resolveRoute", () => {
   });
 });
 
+describe("toolFor", () => {
+  it("keeps GETs in the base tool and moves every other method to <tool>_write", () => {
+    expect(toolFor("gorelo_tickets", "GET")).toBe("gorelo_tickets");
+    expect(toolFor("gorelo_tickets", "POST")).toBe("gorelo_tickets_write");
+    expect(toolFor("gorelo_tickets", "PATCH")).toBe("gorelo_tickets_write");
+    expect(toolFor("gorelo_attachments", "POST")).toBe("gorelo_attachments_write");
+  });
+});
+
 describe("planOperations", () => {
+  it("splits reads and writes: base tools hold only GETs, *_write tools only non-GETs", () => {
+    for (const o of ops) {
+      if (o.tool === "gorelo_admin") continue;
+      const label = `${o.tool}.${o.action}`;
+      if (o.tool.endsWith("_write")) expect(o.method, label).not.toBe("GET");
+      else expect(o.method, label).toBe("GET");
+    }
+    expect(find("post_v1_attachments")).toMatchObject({ tool: "gorelo_attachments_write", action: "upload" });
+    // Admin action names keep the plain resource prefix.
+    expect(find("delete_v1_tickets_ticketId")?.action).toBe("tickets_delete");
+  });
+
+  it("refuses a route whose base tool name collides with the split or admin names", () => {
+    const get = { get: { operationId: "x", responses: {} } };
+    expect(() => planOperations({ paths: { "/v1/tickets-write": get } }, {})).toThrow(/gorelo_tickets_write/);
+    expect(() => planOperations({ paths: { "/v1/admin": get } }, {})).toThrow(/gorelo_admin/);
+  });
+
   it("assigns tools, actions and default tiers", () => {
     expect(find("get_v1_tickets")).toMatchObject({
       tool: "gorelo_tickets",
@@ -45,13 +72,13 @@ describe("planOperations", () => {
       paginated: true,
     });
     expect(find("post_v1_tickets")).toMatchObject({
-      tool: "gorelo_tickets",
+      tool: "gorelo_tickets_write",
       action: "create",
       tier: "write",
     });
     expect(find("get_v1_taxes")).toMatchObject({ tool: "gorelo_billing_reference", action: "list_taxes" });
     expect(find("post_v1_projects_projectId_tasks")).toMatchObject({
-      tool: "gorelo_project_tasks",
+      tool: "gorelo_project_tasks_write",
       action: "create",
     });
   });
@@ -72,7 +99,7 @@ describe("planOperations", () => {
   });
 
   it("forces draft invoices in the write tier and keeps an unforced admin copy", () => {
-    const draft = find("post_v1_invoices", "gorelo_invoices");
+    const draft = find("post_v1_invoices", "gorelo_invoices_write");
     expect(draft).toMatchObject({ action: "create", tier: "write", forceBody: { StatusId: 1 } });
     const props = draft?.body?.schema.properties as Record<string, unknown>;
     expect(props.StatusId).toBeUndefined();
@@ -143,7 +170,7 @@ describe("planOperations", () => {
     expect(byId("e")).toMatchObject([
       { tool: "gorelo_admin", action: "billing_reference_create_work_types", tier: "full" },
     ]);
-    expect(byId("f")).toMatchObject([{ tool: "gorelo_tickets", action: "create", tier: "write" }]);
+    expect(byId("f")).toMatchObject([{ tool: "gorelo_tickets_write", action: "create", tier: "write" }]);
   });
 
   it("keeps draft invoice create in write only because tool-map says so explicitly", () => {

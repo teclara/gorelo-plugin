@@ -47,12 +47,39 @@ describe("listTools", () => {
     expect(tickets.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, openWorldHint: true });
   });
 
-  it("write tier adds write actions but still no admin tool", async () => {
+  it("write tier adds *_write tools and leaves the base tools read-only, still no admin tool", async () => {
     const { reg } = await setup("write");
-    const tickets = reg.listTools().find((t) => t.name === "gorelo_tickets")!;
-    expect((tickets.inputSchema.properties as any).action.enum).toContain("create");
-    expect(tickets.annotations.readOnlyHint).toBe(false);
-    expect(reg.listTools().map((t) => t.name)).not.toContain("gorelo_admin");
+    const tools = reg.listTools();
+    const tickets = tools.find((t) => t.name === "gorelo_tickets")!;
+    expect((tickets.inputSchema.properties as any).action.enum).toEqual([
+      "get",
+      "list",
+      "list_comments",
+      "list_statuses",
+    ]);
+    expect(tickets.annotations.readOnlyHint).toBe(true);
+    const writes = tools.find((t) => t.name === "gorelo_tickets_write")!;
+    expect((writes.inputSchema.properties as any).action.enum).toContain("create");
+    expect(writes.annotations).toEqual({
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true,
+    });
+    expect(writes.description).toMatch(/^Gorelo tickets, write actions/);
+    expect(tools.map((t) => t.name)).not.toContain("gorelo_admin");
+  });
+
+  it("readOnlyHint is true exactly for the tools that are neither *_write nor gorelo_admin", async () => {
+    const { reg } = await setup("full");
+    for (const t of reg.listTools()) {
+      const writes = t.name.endsWith("_write") || t.name === "gorelo_admin";
+      expect(t.annotations.readOnlyHint, t.name).toBe(!writes);
+    }
+  });
+
+  it("read tier lists no *_write tool", async () => {
+    const { reg } = await setup("read");
+    expect(reg.listTools().filter((t) => t.name.endsWith("_write"))).toEqual([]);
   });
 
   it("full tier adds gorelo_admin marked destructive", async () => {
@@ -75,7 +102,7 @@ describe("listTools", () => {
           client: new GoreloClient({ apiKey: "k", baseUrl: "x" }),
           dataDir: "/tmp",
         }),
-    ).toThrow(/gorelo_tickets\.create.*read.*POST/);
+    ).toThrow(/gorelo_tickets_write\.create.*read.*POST/);
   });
 
   it("never uses oneOf/anyOf/allOf at the top level and types params per action", async () => {
@@ -100,7 +127,7 @@ describe("call", () => {
     expect((await reg.call("gorelo_tickets", { action: "explode" })).text).toMatch(
       /Unknown action.*list_comments/s,
     );
-    const forbidden = await reg.call("gorelo_tickets", {
+    const forbidden = await reg.call("gorelo_tickets_write", {
       action: "create",
       params: { body: { Title: "x", ClientId: 1 } },
     });
@@ -117,7 +144,7 @@ describe("call", () => {
     const missing = await reg.call("gorelo_tickets", { action: "get", params: {} });
     expect(missing.isError).toBe(true);
     expect(missing.text).toMatch(/ticketId/);
-    const wrongType = await reg.call("gorelo_tickets", {
+    const wrongType = await reg.call("gorelo_tickets_write", {
       action: "create",
       params: { body: { Title: 5, ClientId: 1 } },
     });
@@ -177,7 +204,7 @@ describe("call", () => {
 
   it("forces StatusId=1 on write-tier invoice create and audits the call", async () => {
     const { reg, calls, dataDir } = await setup("write", [ok({ Id: 7 })]);
-    const res = await reg.call("gorelo_invoices", {
+    const res = await reg.call("gorelo_invoices_write", {
       action: "create",
       params: { body: { ClientId: 3, LineItems: [{ Name: "x" }] } },
     });
@@ -188,12 +215,12 @@ describe("call", () => {
       StatusId: 1,
     });
     const audit = (await readFile(join(dataDir, "audit.jsonl"), "utf8")).trim();
-    expect(JSON.parse(audit)).toMatchObject({ tool: "gorelo_invoices", action: "create", status: 200 });
+    expect(JSON.parse(audit)).toMatchObject({ tool: "gorelo_invoices_write", action: "create", status: 200 });
   });
 
   it("rejects a caller-supplied StatusId on draft invoice create", async () => {
     const { reg, calls } = await setup("write");
-    const res = await reg.call("gorelo_invoices", {
+    const res = await reg.call("gorelo_invoices_write", {
       action: "create",
       params: { body: { ClientId: 3, LineItems: [{ Name: "x" }], StatusId: 5 } },
     });
@@ -217,7 +244,7 @@ describe("call", () => {
     const { reg, calls, dataDir } = await setup("write", [ok({ Name: "a.txt", Url: "https://cdn/a.txt" })]);
     const file = join(dataDir, "a.txt");
     await (await import("node:fs/promises")).writeFile(file, "hello");
-    const res = await reg.call("gorelo_attachments", {
+    const res = await reg.call("gorelo_attachments_write", {
       action: "upload",
       params: {
         file_path: file,
@@ -230,7 +257,7 @@ describe("call", () => {
     expect((form.get("file") as File).name).toBe("a.txt");
     // The audit entry records which local file was sent.
     const audit = JSON.parse((await readFile(join(dataDir, "audit.jsonl"), "utf8")).trim());
-    expect(audit).toMatchObject({ tool: "gorelo_attachments", action: "upload", status: 200 });
+    expect(audit).toMatchObject({ tool: "gorelo_attachments_write", action: "upload", status: 200 });
     expect(audit.params.file_path).toBe(file);
   });
 
@@ -244,7 +271,7 @@ describe("call", () => {
       const { reg, calls, dataDir } = await setup("write");
       await mkdir(join(dataDir, ".secret"));
       await writeFile(join(dataDir, ".secret", "file"), "private key");
-      const res = await reg.call("gorelo_attachments", upload(join(dataDir, ".secret", "file")));
+      const res = await reg.call("gorelo_attachments_write", upload(join(dataDir, ".secret", "file")));
       expect(res.isError).toBe(true);
       expect(res.text).toMatch(/\.secret/);
       expect(res.text).toMatch(/hidden|dot/i);
@@ -254,11 +281,11 @@ describe("call", () => {
     it("rejects dotfiles and symlinks that resolve into a dot-directory", async () => {
       const { reg, calls, dataDir } = await setup("write");
       await writeFile(join(dataDir, ".env"), "SECRET=1");
-      expect((await reg.call("gorelo_attachments", upload(join(dataDir, ".env")))).isError).toBe(true);
+      expect((await reg.call("gorelo_attachments_write", upload(join(dataDir, ".env")))).isError).toBe(true);
       await mkdir(join(dataDir, ".secret"));
       await writeFile(join(dataDir, ".secret", "file"), "private key");
       await symlink(join(dataDir, ".secret", "file"), join(dataDir, "innocent.txt"));
-      const res = await reg.call("gorelo_attachments", upload(join(dataDir, "innocent.txt")));
+      const res = await reg.call("gorelo_attachments_write", upload(join(dataDir, "innocent.txt")));
       expect(res.isError).toBe(true);
       expect(calls).toHaveLength(0);
     });
@@ -266,7 +293,7 @@ describe("call", () => {
     it("rejects a directory without HTTP", async () => {
       const { reg, calls, dataDir } = await setup("write");
       await mkdir(join(dataDir, "folder"));
-      const res = await reg.call("gorelo_attachments", upload(join(dataDir, "folder")));
+      const res = await reg.call("gorelo_attachments_write", upload(join(dataDir, "folder")));
       expect(res.isError).toBe(true);
       expect(res.text).toMatch(/not a regular file/);
       expect(calls).toHaveLength(0);
@@ -277,7 +304,7 @@ describe("call", () => {
       const big = join(dataDir, "big.bin");
       await writeFile(big, "");
       await truncate(big, 25 * 1024 * 1024 + 1);
-      const res = await reg.call("gorelo_attachments", upload(big));
+      const res = await reg.call("gorelo_attachments_write", upload(big));
       expect(res.isError).toBe(true);
       expect(res.text).toMatch(/25 MB/);
       expect(calls).toHaveLength(0);
@@ -285,7 +312,7 @@ describe("call", () => {
 
     it("rejects a missing file without HTTP", async () => {
       const { reg, calls, dataDir } = await setup("write");
-      const res = await reg.call("gorelo_attachments", upload(join(dataDir, "nope.txt")));
+      const res = await reg.call("gorelo_attachments_write", upload(join(dataDir, "nope.txt")));
       expect(res.isError).toBe(true);
       expect(res.text).toMatch(/nope\.txt/);
       expect(calls).toHaveLength(0);
@@ -294,7 +321,7 @@ describe("call", () => {
 
   it("returns Gorelo errors as tool errors and audits failed writes", async () => {
     const { reg, dataDir } = await setup("write", [new Response("{}", { status: 403 })]);
-    const res = await reg.call("gorelo_tickets", {
+    const res = await reg.call("gorelo_tickets_write", {
       action: "create",
       params: { body: { Title: "x", ClientId: 1 } },
     });
@@ -318,7 +345,7 @@ describe("call", () => {
       sleep: async () => {},
     });
     const reg = new Registry(ops, "write", { client, dataDir });
-    const res = await reg.call("gorelo_tickets", {
+    const res = await reg.call("gorelo_tickets_write", {
       action: "create",
       params: { body: { Title: "x", ClientId: 1 } },
     });
@@ -330,13 +357,13 @@ describe("call", () => {
 
   it("rejects a caller-supplied forced key regardless of case, before any HTTP call", async () => {
     const { reg, calls } = await setup("write");
-    const lower = await reg.call("gorelo_invoices", {
+    const lower = await reg.call("gorelo_invoices_write", {
       action: "create",
       params: { body: { ClientId: 3, LineItems: [{ Name: "x" }], statusId: 5 } },
     });
     expect(lower.isError).toBe(true);
     expect(lower.text).toMatch(/StatusId/i);
-    const upper = await reg.call("gorelo_invoices", {
+    const upper = await reg.call("gorelo_invoices_write", {
       action: "create",
       params: { body: { ClientId: 3, LineItems: [{ Name: "x" }], STATUSID: 5 } },
     });
@@ -347,7 +374,7 @@ describe("call", () => {
 
   it("rejects a non-object body naming the field, without crashing or making an HTTP call", async () => {
     const { reg, calls } = await setup("write");
-    const res = await reg.call("gorelo_invoices", { action: "create", params: { body: "x" } });
+    const res = await reg.call("gorelo_invoices_write", { action: "create", params: { body: "x" } });
     expect(res.isError).toBe(true);
     expect(res.text).toMatch(/body/);
     expect(calls).toHaveLength(0);

@@ -31,12 +31,22 @@ Requires Node 20+. When you enable the plugin, Claude Code asks for:
 
 **Scope your API key to match the tier.** The key is the real limit: a read-only key cannot write even if the plugin is set to `full`.
 
-`gorelo_admin` is a separate tool so you can auto-allow everyday tools while every destructive call still asks you first. **If you run Claude Code with bypass permissions, that prompt is skipped.**
+### Tools and permissions
 
-Keep these on "ask" rather than auto-allowed, even in the `write` tier:
+Claude Code grants permissions per tool, so the tools are split by what they can do:
 
-- `gorelo_attachments`: it reads a file from your disk and sends it to Gorelo.
-- Anything that emails people: public ticket or task comments (`create_comments`) and side conversations or approvals (`create_conversations_*`) on `gorelo_tickets` and `gorelo_project_tasks`.
+| Tools | Contain | Suggested permission |
+|---|---|---|
+| `gorelo_tickets`, `gorelo_clients`, `gorelo_time_entries`, ... (no suffix) | Lookups only (`GET`). Marked read-only in every tier. | Safe to auto-allow |
+| `gorelo_tickets_write`, `gorelo_time_entries_write`, `gorelo_invoices_write`, ... (`write` tier and up) | Every create, update and upload for that resource | Keep on "ask" |
+| `gorelo_admin` (`full` tier) | Deletes, approving/voiding invoices, catalogue item changes | Keep on "ask" |
+
+The rule has no exceptions: a tool without the `_write` suffix never changes anything, and a resource that has only writes (attachments, alerts) exists only as `gorelo_attachments_write` and `gorelo_alerts_write`. Auto-allowing `gorelo_tickets` for lookups therefore does not allow `gorelo_tickets_write`. **If you run Claude Code with bypass permissions, every prompt is skipped.**
+
+Keep the `*_write` tools on "ask" rather than auto-allowed. These matter most:
+
+- `gorelo_attachments_write`: it reads a file from your disk and sends it to Gorelo.
+- `gorelo_tickets_write` and `gorelo_project_tasks_write`: public comments (`create_comments`) and side conversations or approvals (`create_conversations_*`) email people.
 
 Ticket text is written by end users and is untrusted. A prompt injection in a ticket could ask Claude to attach a local file or email someone, and the permission prompt is your chance to catch it. The server also refuses to upload hidden (dot) files, anything inside a dot-directory such as `~/.ssh`, non-regular files, and files over 25 MB.
 

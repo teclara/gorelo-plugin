@@ -1,4 +1,8 @@
-import type { Tier } from "./src/types.js";
+import type { HttpMethod, Tier } from "./src/types.js";
+
+/** Holds every full-tier action (deletes, approvals, catalogue changes). */
+export const ADMIN_TOOL = "gorelo_admin";
+export const WRITE_SUFFIX = "_write";
 
 export interface Route {
   match: RegExp;
@@ -22,6 +26,7 @@ export const ROUTES: Route[] = [
 ];
 
 /**
+ * Keyed by the base tool name from resolveRoute (before the read/write split).
  * Tools whose new non-GET operations default to the full tier (money and catalogue changes).
  * Anything that should be reachable in the write tier needs an explicit OVERRIDES tier.
  */
@@ -56,4 +61,14 @@ export function resolveRoute(path: string): { tool: string; base: string } {
   if (route) return { tool: route.tool, base: route.base };
   const segment = path.split("/").filter(Boolean)[1] ?? "misc";
   return { tool: `gorelo_${segment.replace(/-/g, "_")}`, base: `/v1/${segment}` };
+}
+
+/**
+ * Read/write split. Claude Code grants permissions per tool, so below the full tier a GET stays
+ * in the base tool (always read-only, safe to auto-allow) and every other method moves to
+ * `<tool>_write`. A resource with no GETs, such as attachments, has only its `_write` tool.
+ * Full-tier operations go to ADMIN_TOOL instead, whatever their method.
+ */
+export function toolFor(baseTool: string, method: HttpMethod): string {
+  return method === "GET" ? baseTool : `${baseTool}${WRITE_SUFFIX}`;
 }

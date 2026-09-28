@@ -925,7 +925,7 @@ export const OPERATIONS: OperationDef[] = [
     "params": [],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_alerts",
+    "tool": "gorelo_alerts_write",
     "action": "create",
     "tier": "write",
     "body": {
@@ -1154,7 +1154,7 @@ export const OPERATIONS: OperationDef[] = [
     "params": [],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_attachments",
+    "tool": "gorelo_attachments_write",
     "action": "upload",
     "tier": "write",
     "body": {
@@ -1226,6 +1226,121 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
+    "operationId": "get_v1_clients_id",
+    "method": "GET",
+    "path": "/v1/clients/{id}",
+    "summary": "Gets a single client by id.",
+    "params": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Client identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_clients",
+    "action": "get",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_clients",
+    "method": "GET",
+    "path": "/v1/clients",
+    "summary": "Lists clients for the service provider using cursor pagination. Results are sorted by client id ascending (oldest first).",
+    "params": [
+      {
+        "name": "StatusIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated client status ids to include. Inactive clients are excluded either way."
+      },
+      {
+        "name": "Query",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Keyword matched against the client name, alternate name, billing name and web domains. Up to 200 characters."
+      },
+      {
+        "name": "UpdatedSince",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "ISO-8601 timestamp; keeps only clients updated at or after it."
+      },
+      {
+        "name": "UpdatedBefore",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "ISO-8601 timestamp; keeps only clients updated strictly before it."
+      },
+      {
+        "name": "CreatedSince",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "ISO-8601 timestamp; keeps only clients created at or after it."
+      },
+      {
+        "name": "CreatedBefore",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "ISO-8601 timestamp; keeps only clients created strictly before it."
+      }
+    ],
+    "response": "json",
+    "paginated": true,
+    "tool": "gorelo_clients",
+    "action": "list",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_clients_clientId_locations",
+    "method": "GET",
+    "path": "/v1/clients/{clientId}/locations",
+    "summary": "Lists the locations for a given client.",
+    "params": [
+      {
+        "name": "clientId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Client identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_clients",
+    "action": "list_locations",
+    "tier": "read"
+  },
+  {
     "operationId": "post_v1_clients",
     "method": "POST",
     "path": "/v1/clients",
@@ -1233,7 +1348,7 @@ export const OPERATIONS: OperationDef[] = [
     "params": [],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_clients",
+    "tool": "gorelo_clients_write",
     "action": "create",
     "tier": "write",
     "body": {
@@ -1364,121 +1479,6 @@ export const OPERATIONS: OperationDef[] = [
     }
   },
   {
-    "operationId": "get_v1_clients_id",
-    "method": "GET",
-    "path": "/v1/clients/{id}",
-    "summary": "Gets a single client by id.",
-    "params": [
-      {
-        "name": "id",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "integer"
-        },
-        "description": "Client identifier."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_clients",
-    "action": "get",
-    "tier": "read"
-  },
-  {
-    "operationId": "get_v1_clients",
-    "method": "GET",
-    "path": "/v1/clients",
-    "summary": "Lists clients for the service provider using cursor pagination. Results are sorted by client id ascending (oldest first).",
-    "params": [
-      {
-        "name": "StatusIds",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string"
-        },
-        "description": "Comma-separated client status ids to include. Inactive clients are excluded either way."
-      },
-      {
-        "name": "Query",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string"
-        },
-        "description": "Keyword matched against the client name, alternate name, billing name and web domains. Up to 200 characters."
-      },
-      {
-        "name": "UpdatedSince",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "description": "ISO-8601 timestamp; keeps only clients updated at or after it."
-      },
-      {
-        "name": "UpdatedBefore",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "description": "ISO-8601 timestamp; keeps only clients updated strictly before it."
-      },
-      {
-        "name": "CreatedSince",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "description": "ISO-8601 timestamp; keeps only clients created at or after it."
-      },
-      {
-        "name": "CreatedBefore",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "description": "ISO-8601 timestamp; keeps only clients created strictly before it."
-      }
-    ],
-    "response": "json",
-    "paginated": true,
-    "tool": "gorelo_clients",
-    "action": "list",
-    "tier": "read"
-  },
-  {
-    "operationId": "get_v1_clients_clientId_locations",
-    "method": "GET",
-    "path": "/v1/clients/{clientId}/locations",
-    "summary": "Lists the locations for a given client.",
-    "params": [
-      {
-        "name": "clientId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "integer"
-        },
-        "description": "Client identifier."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_clients",
-    "action": "list_locations",
-    "tier": "read"
-  },
-  {
     "operationId": "patch_v1_clients",
     "method": "PATCH",
     "path": "/v1/clients",
@@ -1486,7 +1486,7 @@ export const OPERATIONS: OperationDef[] = [
     "params": [],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_clients",
+    "tool": "gorelo_clients_write",
     "action": "update",
     "tier": "write",
     "body": {
@@ -1533,103 +1533,6 @@ export const OPERATIONS: OperationDef[] = [
         },
         "additionalProperties": false,
         "description": "Request body for updating a client. Only the supplied (non-null) fields are changed; Id identifies the client to update."
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_contacts",
-    "method": "POST",
-    "path": "/v1/contacts",
-    "summary": "Creates a contact under a client.",
-    "params": [],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_contacts",
-    "action": "create",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "ClientId",
-          "FirstName",
-          "LastName",
-          "PrimaryEmail"
-        ],
-        "type": "object",
-        "properties": {
-          "FirstName": {
-            "minLength": 1,
-            "type": "string",
-            "description": "Contact first name. Required. Maximum 150 characters."
-          },
-          "LastName": {
-            "minLength": 1,
-            "type": "string",
-            "description": "Contact last name. Required. Maximum 150 characters."
-          },
-          "ClientId": {
-            "type": "integer",
-            "description": "Identifier of the client the contact belongs to. Required."
-          },
-          "LocationId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Identifier of the client location the contact belongs to."
-          },
-          "PrimaryEmail": {
-            "minLength": 1,
-            "type": "string",
-            "description": "Primary email address. Required. Maximum 200 characters."
-          },
-          "SecondaryEmail": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string"
-            },
-            "description": "Additional (secondary) email addresses. Maximum 200 characters each."
-          },
-          "MobilePhone": {
-            "type": "string",
-            "description": "Mobile phone number (without country code). Maximum 20 characters."
-          },
-          "MobilePhoneCountryCode": {
-            "type": "string",
-            "description": "Mobile phone country calling code (e.g. +1). Maximum 100 characters."
-          },
-          "OfficePhone": {
-            "type": "string",
-            "description": "Office phone number (without country code). Maximum 20 characters."
-          },
-          "OfficePhoneCountryCode": {
-            "type": "string",
-            "description": "Office phone country calling code (e.g. +1). Maximum 25 characters."
-          },
-          "JobTitle": {
-            "type": "string",
-            "description": "Contact job title. Maximum 100 characters."
-          },
-          "Department": {
-            "type": "string",
-            "description": "Contact department. Maximum 150 characters."
-          },
-          "TimeZone": {
-            "type": "string",
-            "description": "IANA time zone identifier for the contact (e.g. America/New_York). Maximum 50 characters."
-          },
-          "Description": {
-            "type": "string",
-            "description": "Free-text description / notes for the contact. Maximum 2000 characters."
-          }
-        },
-        "additionalProperties": false,
-        "description": "Request body for creating a contact under a client."
       }
     }
   },
@@ -1745,6 +1648,103 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
+    "operationId": "post_v1_contacts",
+    "method": "POST",
+    "path": "/v1/contacts",
+    "summary": "Creates a contact under a client.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_contacts_write",
+    "action": "create",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "ClientId",
+          "FirstName",
+          "LastName",
+          "PrimaryEmail"
+        ],
+        "type": "object",
+        "properties": {
+          "FirstName": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Contact first name. Required. Maximum 150 characters."
+          },
+          "LastName": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Contact last name. Required. Maximum 150 characters."
+          },
+          "ClientId": {
+            "type": "integer",
+            "description": "Identifier of the client the contact belongs to. Required."
+          },
+          "LocationId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the client location the contact belongs to."
+          },
+          "PrimaryEmail": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Primary email address. Required. Maximum 200 characters."
+          },
+          "SecondaryEmail": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Additional (secondary) email addresses. Maximum 200 characters each."
+          },
+          "MobilePhone": {
+            "type": "string",
+            "description": "Mobile phone number (without country code). Maximum 20 characters."
+          },
+          "MobilePhoneCountryCode": {
+            "type": "string",
+            "description": "Mobile phone country calling code (e.g. +1). Maximum 100 characters."
+          },
+          "OfficePhone": {
+            "type": "string",
+            "description": "Office phone number (without country code). Maximum 20 characters."
+          },
+          "OfficePhoneCountryCode": {
+            "type": "string",
+            "description": "Office phone country calling code (e.g. +1). Maximum 25 characters."
+          },
+          "JobTitle": {
+            "type": "string",
+            "description": "Contact job title. Maximum 100 characters."
+          },
+          "Department": {
+            "type": "string",
+            "description": "Contact department. Maximum 150 characters."
+          },
+          "TimeZone": {
+            "type": "string",
+            "description": "IANA time zone identifier for the contact (e.g. America/New_York). Maximum 50 characters."
+          },
+          "Description": {
+            "type": "string",
+            "description": "Free-text description / notes for the contact. Maximum 2000 characters."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for creating a contact under a client."
+      }
+    }
+  },
+  {
     "operationId": "patch_v1_contacts",
     "method": "PATCH",
     "path": "/v1/contacts",
@@ -1752,7 +1752,7 @@ export const OPERATIONS: OperationDef[] = [
     "params": [],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_contacts",
+    "tool": "gorelo_contacts_write",
     "action": "update",
     "tier": "write",
     "body": {
@@ -1891,56 +1891,6 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
-    "operationId": "post_v1_forms_formId_submission-links",
-    "method": "POST",
-    "path": "/v1/forms/{formId}/submission-links",
-    "summary": "Issues a link through which the form can be submitted.",
-    "params": [
-      {
-        "name": "formId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "pattern": "^[A-Za-z0-9_-]{1,50}$",
-          "type": "string"
-        },
-        "description": "Form the link is for."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_forms",
-    "action": "create_submission_links",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "type": "object",
-        "properties": {
-          "TicketId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Ticket the submission is filed against. Optional; not with TaskId. Must be an active ticket of the authenticated service provider.",
-            "format": "uuid"
-          },
-          "TaskId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Task the submission is filed against. Optional; not with TicketId. Must be an active task, in an active project, of the authenticated service provider.",
-            "format": "uuid"
-          }
-        },
-        "additionalProperties": false,
-        "description": "Request body for issuing a submission link. The form is named in the path and the owning service provider is resolved from the request context, not from the body."
-      }
-    }
-  },
-  {
     "operationId": "get_v1_forms",
     "method": "GET",
     "path": "/v1/forms",
@@ -2041,15 +1991,26 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
-    "operationId": "post_v1_invoices",
+    "operationId": "post_v1_forms_formId_submission-links",
     "method": "POST",
-    "path": "/v1/invoices",
-    "summary": "Raises a manual invoice against a client, with line items.",
-    "params": [],
+    "path": "/v1/forms/{formId}/submission-links",
+    "summary": "Issues a link through which the form can be submitted.",
+    "params": [
+      {
+        "name": "formId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "pattern": "^[A-Za-z0-9_-]{1,50}$",
+          "type": "string"
+        },
+        "description": "Form the link is for."
+      }
+    ],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_invoices",
-    "action": "create",
+    "tool": "gorelo_forms_write",
+    "action": "create_submission_links",
     "tier": "write",
     "body": {
       "contentType": "application/json",
@@ -2057,118 +2018,26 @@ export const OPERATIONS: OperationDef[] = [
       "schema": {
         "type": "object",
         "properties": {
-          "ClientId": {
-            "type": "integer",
-            "description": "Client to bill. Validated against the service provider - an unknown client is a 404."
-          },
-          "InvoiceDate": {
+          "TicketId": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Date the invoice is raised, a calendar date. Defaults to today (service provider's local date) when omitted.",
-            "format": "date-time"
+            "description": "Ticket the submission is filed against. Optional; not with TaskId. Must be an active ticket of the authenticated service provider.",
+            "format": "uuid"
           },
-          "DueDate": {
+          "TaskId": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Date payment is due, a calendar date. Defaults to InvoiceDate when omitted. Must not be earlier than InvoiceDate.",
-            "format": "date-time"
-          },
-          "Reference": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Free-text reference for the invoice, or omit for none."
-          },
-          "RecipientEmails": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string"
-            },
-            "description": "Email addresses to send the invoice to. Optional."
-          },
-          "LineItems": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "ItemId": {
-                  "type": "string",
-                  "description": "Catalog item this line bills. Required. Validated for existence and tenant ownership against GET /v1/items.",
-                  "format": "uuid"
-                },
-                "Description": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "description": "Description shown on the invoice for this line. Falls back to the item's own name when omitted."
-                },
-                "Quantity": {
-                  "type": "number",
-                  "description": "Quantity billed. Required, must be greater than 0."
-                },
-                "UnitPrice": {
-                  "type": [
-                    "number",
-                    "null"
-                  ],
-                  "description": "Unit price. Falls back to the item's own price when omitted."
-                },
-                "UnitCost": {
-                  "type": [
-                    "number",
-                    "null"
-                  ],
-                  "description": "Unit cost. Falls back to the item's own cost when omitted."
-                },
-                "DiscountPercent": {
-                  "type": [
-                    "number",
-                    "null"
-                  ],
-                  "description": "Discount percentage for this line, 0-100. Defaults to 0 when omitted."
-                },
-                "TaxId": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ],
-                  "description": "Tax to apply to this line. Falls back to the item's own tax when omitted; send explicit null to force no tax regardless of the item's own tax."
-                },
-                "CoaCode": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "description": "Chart-of-accounts code for this line. Falls back to the item's own COA code when omitted."
-                },
-                "BillableStatusId": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ],
-                  "description": "Billable status for this line: 1 = Billable, 2 = No charge, 3 = Non-billable. Defaults to Billable when omitted."
-                }
-              },
-              "additionalProperties": false
-            },
-            "description": "Line items for this invoice. At least one is required. Deliberately narrower than the internal invoice-item shape: no task/ticket/time-entry linkage and no bundle sub-items - those belong to contract-generated invoices, out of scope for a manual one."
+            "description": "Task the submission is filed against. Optional; not with TicketId. Must be an active task, in an active project, of the authenticated service provider.",
+            "format": "uuid"
           }
         },
         "additionalProperties": false,
-        "description": "Raises a manual invoice against a client, with line items."
+        "description": "Request body for issuing a submission link. The form is named in the path and the owning service provider is resolved from the request context, not from the body."
       }
-    },
-    "forceBody": {
-      "StatusId": 1
     }
   },
   {
@@ -2362,6 +2231,137 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
+    "operationId": "post_v1_invoices",
+    "method": "POST",
+    "path": "/v1/invoices",
+    "summary": "Raises a manual invoice against a client, with line items.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_invoices_write",
+    "action": "create",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ClientId": {
+            "type": "integer",
+            "description": "Client to bill. Validated against the service provider - an unknown client is a 404."
+          },
+          "InvoiceDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date the invoice is raised, a calendar date. Defaults to today (service provider's local date) when omitted.",
+            "format": "date-time"
+          },
+          "DueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date payment is due, a calendar date. Defaults to InvoiceDate when omitted. Must not be earlier than InvoiceDate.",
+            "format": "date-time"
+          },
+          "Reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-text reference for the invoice, or omit for none."
+          },
+          "RecipientEmails": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Email addresses to send the invoice to. Optional."
+          },
+          "LineItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ItemId": {
+                  "type": "string",
+                  "description": "Catalog item this line bills. Required. Validated for existence and tenant ownership against GET /v1/items.",
+                  "format": "uuid"
+                },
+                "Description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Description shown on the invoice for this line. Falls back to the item's own name when omitted."
+                },
+                "Quantity": {
+                  "type": "number",
+                  "description": "Quantity billed. Required, must be greater than 0."
+                },
+                "UnitPrice": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Unit price. Falls back to the item's own price when omitted."
+                },
+                "UnitCost": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Unit cost. Falls back to the item's own cost when omitted."
+                },
+                "DiscountPercent": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Discount percentage for this line, 0-100. Defaults to 0 when omitted."
+                },
+                "TaxId": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "Tax to apply to this line. Falls back to the item's own tax when omitted; send explicit null to force no tax regardless of the item's own tax."
+                },
+                "CoaCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Chart-of-accounts code for this line. Falls back to the item's own COA code when omitted."
+                },
+                "BillableStatusId": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "Billable status for this line: 1 = Billable, 2 = No charge, 3 = Non-billable. Defaults to Billable when omitted."
+                }
+              },
+              "additionalProperties": false
+            },
+            "description": "Line items for this invoice. At least one is required. Deliberately narrower than the internal invoice-item shape: no task/ticket/time-entry linkage and no bundle sub-items - those belong to contract-generated invoices, out of scope for a manual one."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Raises a manual invoice against a client, with line items."
+      }
+    },
+    "forceBody": {
+      "StatusId": 1
+    }
+  },
+  {
     "operationId": "get_v1_items_itemId",
     "method": "GET",
     "path": "/v1/items/{itemId}",
@@ -2541,323 +2541,6 @@ export const OPERATIONS: OperationDef[] = [
     "tool": "gorelo_organization",
     "action": "list_users",
     "tier": "read"
-  },
-  {
-    "operationId": "post_v1_projects_projectId_tasks",
-    "method": "POST",
-    "path": "/v1/projects/{projectId}/tasks",
-    "summary": "Creates a task on a project's board.",
-    "params": [
-      {
-        "name": "projectId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Project to create the task in."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_project_tasks",
-    "action": "create",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "Title"
-        ],
-        "type": "object",
-        "properties": {
-          "SectionId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "Title": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "LeadAssigneeId": {
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "AssistingAssigneeIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            }
-          },
-          "WatcherIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            }
-          },
-          "PriorityId": {
-            "type": "integer"
-          },
-          "StatusId": {
-            "type": "integer"
-          },
-          "DueDate": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "CreatedByName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "CreatedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "UpdatedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_projects_projectId_tasks_taskId_comments",
-    "method": "POST",
-    "path": "/v1/projects/{projectId}/tasks/{taskId}/comments",
-    "summary": "Posts a comment on a task.",
-    "params": [
-      {
-        "name": "projectId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Project the task belongs to."
-      },
-      {
-        "name": "taskId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Task to comment on."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_project_tasks",
-    "action": "create_comments",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "Body"
-        ],
-        "type": "object",
-        "properties": {
-          "ConversationTypeId": {
-            "type": "integer"
-          },
-          "ConversationId": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "Body": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "BodyText": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "Attachments": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "object",
-              "properties": {
-                "Name": {
-                  "type": "string"
-                },
-                "Url": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "CreatedByName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "CreatedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_projects_projectId_tasks_taskId_conversations_approval",
-    "method": "POST",
-    "path": "/v1/projects/{projectId}/tasks/{taskId}/conversations/approval",
-    "summary": "Asks contacts to approve something on a task.",
-    "params": [
-      {
-        "name": "projectId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Project the task belongs to."
-      },
-      {
-        "name": "taskId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Task the approval is for."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_project_tasks",
-    "action": "create_conversations_approval",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "Name"
-        ],
-        "type": "object",
-        "properties": {
-          "Name": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "ContactIds": {
-            "type": "array",
-            "items": {
-              "type": "integer"
-            }
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_projects_projectId_tasks_taskId_conversations_side-conversation",
-    "method": "POST",
-    "path": "/v1/projects/{projectId}/tasks/{taskId}/conversations/side-conversation",
-    "summary": "Starts a side conversation on a task.",
-    "params": [
-      {
-        "name": "projectId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Project the task belongs to."
-      },
-      {
-        "name": "taskId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Task to start the conversation on."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_project_tasks",
-    "action": "create_conversations_side_conversation",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "Email",
-          "Name"
-        ],
-        "type": "object",
-        "properties": {
-          "Name": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "Email": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "CcEmails": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "additionalProperties": false
-      }
-    }
   },
   {
     "operationId": "get_v1_projects_projectId_tasks_taskId",
@@ -3192,6 +2875,323 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
+    "operationId": "post_v1_projects_projectId_tasks",
+    "method": "POST",
+    "path": "/v1/projects/{projectId}/tasks",
+    "summary": "Creates a task on a project's board.",
+    "params": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Project to create the task in."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_project_tasks_write",
+    "action": "create",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "Title"
+        ],
+        "type": "object",
+        "properties": {
+          "SectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "Title": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "LeadAssigneeId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "AssistingAssigneeIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer"
+            }
+          },
+          "WatcherIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer"
+            }
+          },
+          "PriorityId": {
+            "type": "integer"
+          },
+          "StatusId": {
+            "type": "integer"
+          },
+          "DueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "CreatedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "CreatedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "UpdatedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_projects_projectId_tasks_taskId_comments",
+    "method": "POST",
+    "path": "/v1/projects/{projectId}/tasks/{taskId}/comments",
+    "summary": "Posts a comment on a task.",
+    "params": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Project the task belongs to."
+      },
+      {
+        "name": "taskId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Task to comment on."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_project_tasks_write",
+    "action": "create_comments",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "Body"
+        ],
+        "type": "object",
+        "properties": {
+          "ConversationTypeId": {
+            "type": "integer"
+          },
+          "ConversationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Body": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "BodyText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "Name": {
+                  "type": "string"
+                },
+                "Url": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "CreatedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "CreatedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_projects_projectId_tasks_taskId_conversations_approval",
+    "method": "POST",
+    "path": "/v1/projects/{projectId}/tasks/{taskId}/conversations/approval",
+    "summary": "Asks contacts to approve something on a task.",
+    "params": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Project the task belongs to."
+      },
+      {
+        "name": "taskId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Task the approval is for."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_project_tasks_write",
+    "action": "create_conversations_approval",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "ContactIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_projects_projectId_tasks_taskId_conversations_side-conversation",
+    "method": "POST",
+    "path": "/v1/projects/{projectId}/tasks/{taskId}/conversations/side-conversation",
+    "summary": "Starts a side conversation on a task.",
+    "params": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Project the task belongs to."
+      },
+      {
+        "name": "taskId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Task to start the conversation on."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_project_tasks_write",
+    "action": "create_conversations_side_conversation",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "Email",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Email": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "CcEmails": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
     "operationId": "patch_v1_projects_projectId_tasks_taskId",
     "method": "PATCH",
     "path": "/v1/projects/{projectId}/tasks/{taskId}",
@@ -3220,7 +3220,7 @@ export const OPERATIONS: OperationDef[] = [
     ],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_project_tasks",
+    "tool": "gorelo_project_tasks_write",
     "action": "update",
     "tier": "write",
     "body": {
@@ -3354,262 +3354,6 @@ export const OPERATIONS: OperationDef[] = [
             ]
           },
           "UpdatedByName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_projects",
-    "method": "POST",
-    "path": "/v1/projects",
-    "summary": "Creates a project for the authenticated service provider.",
-    "params": [],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_projects",
-    "action": "create",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "Title"
-        ],
-        "type": "object",
-        "properties": {
-          "Title": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "Description": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "ClientId": {
-            "type": "integer"
-          },
-          "LocationId": {
-            "type": "integer"
-          },
-          "LeadAssigneeId": {
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "TypeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "TagIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "GroupId": {
-            "type": "integer"
-          },
-          "GroupIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            }
-          },
-          "WatcherIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            }
-          },
-          "SharedWithContactIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            }
-          },
-          "DueDate": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "CreatedByName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "CreatedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "UpdatedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_projects_projectId_comments",
-    "method": "POST",
-    "path": "/v1/projects/{projectId}/comments",
-    "summary": "Posts a comment on a project.",
-    "params": [
-      {
-        "name": "projectId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Project to comment on."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_projects",
-    "action": "create_comments",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "Body"
-        ],
-        "type": "object",
-        "properties": {
-          "Body": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "BodyText": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "ConversationTypeId": {
-            "type": "integer"
-          },
-          "ConversationId": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "Attachments": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "object",
-              "properties": {
-                "Name": {
-                  "type": "string"
-                },
-                "Url": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "CreatedByName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "CreatedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_projects_projectId_sections",
-    "method": "POST",
-    "path": "/v1/projects/{projectId}/sections",
-    "summary": "Adds a section to a project.",
-    "params": [
-      {
-        "name": "projectId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Project to add the section to."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_projects",
-    "action": "create_sections",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "Title"
-        ],
-        "type": "object",
-        "properties": {
-          "Title": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "Color": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "CreatedByName": {
             "type": [
               "string",
               "null"
@@ -3913,6 +3657,262 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
+    "operationId": "post_v1_projects",
+    "method": "POST",
+    "path": "/v1/projects",
+    "summary": "Creates a project for the authenticated service provider.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_projects_write",
+    "action": "create",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "Title"
+        ],
+        "type": "object",
+        "properties": {
+          "Title": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ClientId": {
+            "type": "integer"
+          },
+          "LocationId": {
+            "type": "integer"
+          },
+          "LeadAssigneeId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "TypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "TagIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "GroupId": {
+            "type": "integer"
+          },
+          "GroupIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer"
+            }
+          },
+          "WatcherIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer"
+            }
+          },
+          "SharedWithContactIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer"
+            }
+          },
+          "DueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "CreatedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "CreatedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "UpdatedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_projects_projectId_comments",
+    "method": "POST",
+    "path": "/v1/projects/{projectId}/comments",
+    "summary": "Posts a comment on a project.",
+    "params": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Project to comment on."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_projects_write",
+    "action": "create_comments",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "Body"
+        ],
+        "type": "object",
+        "properties": {
+          "Body": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "BodyText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ConversationTypeId": {
+            "type": "integer"
+          },
+          "ConversationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "Name": {
+                  "type": "string"
+                },
+                "Url": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "CreatedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "CreatedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_projects_projectId_sections",
+    "method": "POST",
+    "path": "/v1/projects/{projectId}/sections",
+    "summary": "Adds a section to a project.",
+    "params": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Project to add the section to."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_projects_write",
+    "action": "create_sections",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "Title"
+        ],
+        "type": "object",
+        "properties": {
+          "Title": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "CreatedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
     "operationId": "patch_v1_projects_projectId",
     "method": "PATCH",
     "path": "/v1/projects/{projectId}",
@@ -3931,7 +3931,7 @@ export const OPERATIONS: OperationDef[] = [
     ],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_projects",
+    "tool": "gorelo_projects_write",
     "action": "update",
     "tier": "write",
     "body": {
@@ -4086,7 +4086,7 @@ export const OPERATIONS: OperationDef[] = [
     ],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_projects",
+    "tool": "gorelo_projects_write",
     "action": "update_sections",
     "tier": "write",
     "body": {
@@ -4112,422 +4112,6 @@ export const OPERATIONS: OperationDef[] = [
               "string",
               "null"
             ]
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_tickets",
-    "method": "POST",
-    "path": "/v1/tickets",
-    "summary": "Creates a ticket for the authenticated service provider.",
-    "params": [],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_tickets",
-    "action": "create",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "GroupId",
-          "StatusId",
-          "Title",
-          "TypeId"
-        ],
-        "type": "object",
-        "properties": {
-          "Title": {
-            "minLength": 1,
-            "type": "string",
-            "description": "Ticket title/subject. Required. Maximum 250 characters."
-          },
-          "CreatedByName": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Display name to record as the ticket creator when no contact is resolved."
-          },
-          "CreatedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Backdate the ticket's creation timestamp — for importing tickets from another system. Must not be in the future. Omit to use the current time. Required when ClosedOn or UpdatedOn is supplied. A caller migrating a ticket sends CreatedOn, ClosedOn and UpdatedOn together, so the ticket keeps the dates it had in the other system.",
-            "format": "date-time"
-          },
-          "ClosedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "The date the ticket was closed, for importing already-closed tickets from another system. Requires CreatedOn to be supplied. Only valid when the ticket is created in a closed status. Must not be in the future or earlier than CreatedOn. Omit to have a ticket created in a closed status closed as of its creation time.",
-            "format": "date-time"
-          },
-          "UpdatedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Backdate the ticket's last-activity timestamp so an imported ticket does not sort above live work. Requires CreatedOn to be supplied. Must not be in the future or earlier than CreatedOn. Defaults to ClosedOn when supplied, otherwise to CreatedOn.",
-            "format": "date-time"
-          },
-          "ClientId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Identifier of the client the ticket belongs to."
-          },
-          "LocationId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Identifier of the client location the ticket belongs to."
-          },
-          "ContactId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Identifier of the primary contact for the ticket."
-          },
-          "CcContactIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            },
-            "description": "Identifiers of additional (CC) contacts."
-          },
-          "StatusId": {
-            "type": "integer",
-            "description": "Initial status identifier. Required; must be an existing status for the service provider."
-          },
-          "GroupId": {
-            "type": "integer",
-            "description": "Identifier of the technician group the ticket is assigned to. Required."
-          },
-          "Description": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Free-text ticket description / body."
-          },
-          "PriorityId": {
-            "enum": [
-              0,
-              1,
-              2,
-              3,
-              4
-            ],
-            "type": "integer"
-          },
-          "SourceId": {
-            "enum": [
-              1,
-              2,
-              3,
-              4,
-              5,
-              6
-            ],
-            "type": "integer"
-          },
-          "TypeId": {
-            "type": "integer",
-            "description": "Ticket type identifier. Required."
-          },
-          "LeadAssigneeId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Identifier of the lead assignee (technician)."
-          },
-          "AssistingAssigneeIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            },
-            "description": "Identifiers of assisting assignees (technicians)."
-          },
-          "WatcherIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            },
-            "description": "Identifiers of technicians watching the ticket."
-          },
-          "TagIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            },
-            "description": "Identifiers of tags to apply to the ticket."
-          },
-          "AgentAssetIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Identifiers of agent (managed device) assets to link to the ticket."
-          },
-          "CustomAssetIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Identifiers of custom assets to link to the ticket."
-          },
-          "UptimeIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Identifiers of uptime monitors to link to the ticket."
-          },
-          "SendTicketCreatedEmail": {
-            "type": [
-              "boolean",
-              "null"
-            ],
-            "description": "When true, sends a \"ticket created\" email to the contact. Defaults to false."
-          },
-          "IsUnread": {
-            "type": [
-              "boolean",
-              "null"
-            ],
-            "description": "Whether the ticket is created in an unread state. Defaults to true."
-          }
-        },
-        "additionalProperties": false,
-        "description": "Request body for creating a ticket. The owning service provider is resolved from the request context, not from the body."
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_tickets_ticketId_comments",
-    "method": "POST",
-    "path": "/v1/tickets/{ticketId}/comments",
-    "summary": "Adds a comment to a ticket. The comment is always recorded as coming from the API — the caller cannot post as a specific user, and `To` and `Cc` are taken from the conversation rather than the request.",
-    "params": [
-      {
-        "name": "ticketId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Ticket identifier."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_tickets",
-    "action": "create_comments",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "Body",
-          "ConversationTypeId"
-        ],
-        "type": "object",
-        "properties": {
-          "ConversationTypeId": {
-            "type": "integer",
-            "description": "1 Public, 2 Private, 3 Side Conversation, 4 Approval."
-          },
-          "ConversationId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Identifier of the conversation to post into. Required for Side Conversation and Approval, and rejected for Public and Private, which are the ticket's main thread."
-          },
-          "Body": {
-            "minLength": 1,
-            "type": "string",
-            "description": "Comment body as HTML. Mentions go inside the HTML."
-          },
-          "CreatedByName": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Display name to show the comment as. The comment is still recorded as API-authored — a name cannot be used to post as a specific real user."
-          },
-          "CreatedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Backdate the comment's timestamp — for importing ticket history from another system. Must not be in the future or earlier than the ticket's own CreatedOn. Omit to use the current time. When supplied, the ticket's UpdatedOn becomes the later of its current value and this timestamp, so importing older history does not push the ticket to the top of an updatedOn-sorted list.",
-            "format": "date-time"
-          },
-          "Attachments": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "Name": {
-                  "type": "string"
-                },
-                "Url": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false
-            },
-            "description": "Files to attach, as returned by the attachment upload endpoint."
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_tickets_ticketId_conversations_approval",
-    "method": "POST",
-    "path": "/v1/tickets/{ticketId}/conversations/approval",
-    "summary": "Creates an approval on a ticket. Every listed contact starts Pending. The approval is created empty — post into it afterwards with the comments endpoint, using the returned `Id` as `conversationId` and `conversationType` 4, which is also what sends the approvers their confirmation email.",
-    "params": [
-      {
-        "name": "ticketId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Ticket identifier."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_tickets",
-    "action": "create_conversations_approval",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "ContactIds",
-          "Name"
-        ],
-        "type": "object",
-        "properties": {
-          "Name": {
-            "minLength": 1,
-            "type": "string",
-            "description": "Short label for the approval."
-          },
-          "ContactIds": {
-            "type": "array",
-            "items": {
-              "type": "integer"
-            },
-            "description": "Identifiers of the contacts asked to approve. At least one is required. Every id must be Active, belong to this ticket's client (any client when the ticket has none) and carry a contact tag marked as an approver — the same restriction the app's own approver picker applies."
-          },
-          "AttachPublicConversation": {
-            "type": "boolean",
-            "description": "When true, the public comments already on the ticket's main thread are attached the first time a comment is posted into this approval. Matches the in-app checkbox (\"Attach all Public comments to this Approval\")."
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_tickets_ticketId_conversations_side-conversation",
-    "method": "POST",
-    "path": "/v1/tickets/{ticketId}/conversations/side-conversation",
-    "summary": "Creates a side conversation on a ticket. Post a comment into it afterward using this conversation's returned `Id` as `conversationId` with `conversationType=3`.",
-    "params": [
-      {
-        "name": "ticketId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Ticket identifier."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_tickets",
-    "action": "create_conversations_side_conversation",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "required": [
-          "Email",
-          "Name"
-        ],
-        "type": "object",
-        "properties": {
-          "Name": {
-            "minLength": 1,
-            "type": "string",
-            "description": "Short label for the side conversation. Maximum 250 characters."
-          },
-          "Email": {
-            "minLength": 1,
-            "type": "string",
-            "description": "Address this side conversation is directed to. Maximum 50 characters.",
-            "format": "email"
-          },
-          "CcEmails": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Addresses copied on this side conversation. Optional. Maximum 50 characters each."
-          },
-          "AttachPublicConversation": {
-            "type": "boolean",
-            "description": "When true, public comments already on the ticket's main thread are attached the first time a comment is posted into this side conversation."
           }
         },
         "additionalProperties": false
@@ -4898,6 +4482,422 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
+    "operationId": "post_v1_tickets",
+    "method": "POST",
+    "path": "/v1/tickets",
+    "summary": "Creates a ticket for the authenticated service provider.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_tickets_write",
+    "action": "create",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "GroupId",
+          "StatusId",
+          "Title",
+          "TypeId"
+        ],
+        "type": "object",
+        "properties": {
+          "Title": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Ticket title/subject. Required. Maximum 250 characters."
+          },
+          "CreatedByName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name to record as the ticket creator when no contact is resolved."
+          },
+          "CreatedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Backdate the ticket's creation timestamp — for importing tickets from another system. Must not be in the future. Omit to use the current time. Required when ClosedOn or UpdatedOn is supplied. A caller migrating a ticket sends CreatedOn, ClosedOn and UpdatedOn together, so the ticket keeps the dates it had in the other system.",
+            "format": "date-time"
+          },
+          "ClosedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The date the ticket was closed, for importing already-closed tickets from another system. Requires CreatedOn to be supplied. Only valid when the ticket is created in a closed status. Must not be in the future or earlier than CreatedOn. Omit to have a ticket created in a closed status closed as of its creation time.",
+            "format": "date-time"
+          },
+          "UpdatedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Backdate the ticket's last-activity timestamp so an imported ticket does not sort above live work. Requires CreatedOn to be supplied. Must not be in the future or earlier than CreatedOn. Defaults to ClosedOn when supplied, otherwise to CreatedOn.",
+            "format": "date-time"
+          },
+          "ClientId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the client the ticket belongs to."
+          },
+          "LocationId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the client location the ticket belongs to."
+          },
+          "ContactId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the primary contact for the ticket."
+          },
+          "CcContactIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "description": "Identifiers of additional (CC) contacts."
+          },
+          "StatusId": {
+            "type": "integer",
+            "description": "Initial status identifier. Required; must be an existing status for the service provider."
+          },
+          "GroupId": {
+            "type": "integer",
+            "description": "Identifier of the technician group the ticket is assigned to. Required."
+          },
+          "Description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-text ticket description / body."
+          },
+          "PriorityId": {
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "type": "integer"
+          },
+          "SourceId": {
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "type": "integer"
+          },
+          "TypeId": {
+            "type": "integer",
+            "description": "Ticket type identifier. Required."
+          },
+          "LeadAssigneeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the lead assignee (technician)."
+          },
+          "AssistingAssigneeIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "description": "Identifiers of assisting assignees (technicians)."
+          },
+          "WatcherIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "description": "Identifiers of technicians watching the ticket."
+          },
+          "TagIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "description": "Identifiers of tags to apply to the ticket."
+          },
+          "AgentAssetIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Identifiers of agent (managed device) assets to link to the ticket."
+          },
+          "CustomAssetIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Identifiers of custom assets to link to the ticket."
+          },
+          "UptimeIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Identifiers of uptime monitors to link to the ticket."
+          },
+          "SendTicketCreatedEmail": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "When true, sends a \"ticket created\" email to the contact. Defaults to false."
+          },
+          "IsUnread": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the ticket is created in an unread state. Defaults to true."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for creating a ticket. The owning service provider is resolved from the request context, not from the body."
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_tickets_ticketId_comments",
+    "method": "POST",
+    "path": "/v1/tickets/{ticketId}/comments",
+    "summary": "Adds a comment to a ticket. The comment is always recorded as coming from the API — the caller cannot post as a specific user, and `To` and `Cc` are taken from the conversation rather than the request.",
+    "params": [
+      {
+        "name": "ticketId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Ticket identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_tickets_write",
+    "action": "create_comments",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "Body",
+          "ConversationTypeId"
+        ],
+        "type": "object",
+        "properties": {
+          "ConversationTypeId": {
+            "type": "integer",
+            "description": "1 Public, 2 Private, 3 Side Conversation, 4 Approval."
+          },
+          "ConversationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Identifier of the conversation to post into. Required for Side Conversation and Approval, and rejected for Public and Private, which are the ticket's main thread."
+          },
+          "Body": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Comment body as HTML. Mentions go inside the HTML."
+          },
+          "CreatedByName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name to show the comment as. The comment is still recorded as API-authored — a name cannot be used to post as a specific real user."
+          },
+          "CreatedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Backdate the comment's timestamp — for importing ticket history from another system. Must not be in the future or earlier than the ticket's own CreatedOn. Omit to use the current time. When supplied, the ticket's UpdatedOn becomes the later of its current value and this timestamp, so importing older history does not push the ticket to the top of an updatedOn-sorted list.",
+            "format": "date-time"
+          },
+          "Attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "Name": {
+                  "type": "string"
+                },
+                "Url": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "description": "Files to attach, as returned by the attachment upload endpoint."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_tickets_ticketId_conversations_approval",
+    "method": "POST",
+    "path": "/v1/tickets/{ticketId}/conversations/approval",
+    "summary": "Creates an approval on a ticket. Every listed contact starts Pending. The approval is created empty — post into it afterwards with the comments endpoint, using the returned `Id` as `conversationId` and `conversationType` 4, which is also what sends the approvers their confirmation email.",
+    "params": [
+      {
+        "name": "ticketId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Ticket identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_tickets_write",
+    "action": "create_conversations_approval",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "ContactIds",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Short label for the approval."
+          },
+          "ContactIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Identifiers of the contacts asked to approve. At least one is required. Every id must be Active, belong to this ticket's client (any client when the ticket has none) and carry a contact tag marked as an approver — the same restriction the app's own approver picker applies."
+          },
+          "AttachPublicConversation": {
+            "type": "boolean",
+            "description": "When true, the public comments already on the ticket's main thread are attached the first time a comment is posted into this approval. Matches the in-app checkbox (\"Attach all Public comments to this Approval\")."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_tickets_ticketId_conversations_side-conversation",
+    "method": "POST",
+    "path": "/v1/tickets/{ticketId}/conversations/side-conversation",
+    "summary": "Creates a side conversation on a ticket. Post a comment into it afterward using this conversation's returned `Id` as `conversationId` with `conversationType=3`.",
+    "params": [
+      {
+        "name": "ticketId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Ticket identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_tickets_write",
+    "action": "create_conversations_side_conversation",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "required": [
+          "Email",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Short label for the side conversation. Maximum 250 characters."
+          },
+          "Email": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Address this side conversation is directed to. Maximum 50 characters.",
+            "format": "email"
+          },
+          "CcEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Addresses copied on this side conversation. Optional. Maximum 50 characters each."
+          },
+          "AttachPublicConversation": {
+            "type": "boolean",
+            "description": "When true, public comments already on the ticket's main thread are attached the first time a comment is posted into this side conversation."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
     "operationId": "patch_v1_tickets_ticketId",
     "method": "PATCH",
     "path": "/v1/tickets/{ticketId}",
@@ -4916,7 +4916,7 @@ export const OPERATIONS: OperationDef[] = [
     ],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_tickets",
+    "tool": "gorelo_tickets_write",
     "action": "update",
     "tier": "write",
     "body": {
@@ -5132,135 +5132,6 @@ export const OPERATIONS: OperationDef[] = [
     }
   },
   {
-    "operationId": "post_v1_time-entries",
-    "method": "POST",
-    "path": "/v1/time-entries",
-    "summary": "Logs time against a ticket.",
-    "params": [],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_time_entries",
-    "action": "create",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "type": "object",
-        "properties": {
-          "TicketId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Ticket to log the time against. Send **either** this or TaskId, not both and not neither. Validated against the service provider - an unknown ticket is a 404. The entry is billed to the ticket's client; a ticket with no client is rejected with 409.",
-            "format": "uuid"
-          },
-          "TaskId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Task to log the time against, instead of a ticket. Validated the same way - an unknown task is a 404. The entry is billed to the client of the task's **project**, which is authoritative; the task's own copy of the client can lag behind. A task carries no billing defaults of its own, so the billing role, work type and billable status fall to the technician's defaults and then the service provider's",
-            "format": "uuid"
-          },
-          "StartedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "When the work started, as a single UTC instant. Supply any two of StartedOn, EndedOn and ActualHours and the third is derived. Supplying all three is accepted only when ActualHours agrees with the span between the two instants, to the same four decimal places GET reports it at; a disagreement is rejected rather than resolved by discarding one of the three.",
-            "format": "date-time"
-          },
-          "EndedOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "When the work finished, as a single UTC instant. Must be later than `StartedOn`. See `StartedOn` for which combinations of the three time fields are accepted.",
-            "format": "date-time"
-          },
-          "ActualHours": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Duration worked, in decimal hours. Must be greater than 0. This is the raw logged duration and is never pre-rounded: the work type's minimum and increment rounding is applied on top of it, and GET reports the rounded figure separately as AdjustedHours. See `StartedOn` for which combinations of the three time fields are accepted."
-          },
-          "BillableStatusId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Billable status for this entry: 1 = Billable, 2 = No charge, 3 = Non-billable; any other value is rejected. Optional — omit it and the ticket's own billable status is used, else the work type's, else Billable."
-          },
-          "UserId": {
-            "type": "integer",
-            "description": "User whose time this is. Validated against the service provider. Named UserId rather than TechnicianId because Gorelo uses \"user\", not \"technician\", in its own vocabulary."
-          },
-          "BillingRoleId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Billing role to charge at. Optional — omit it and the ticket's own billing role is used, else the user's, else the service provider's first. Get valid ids from GET /v1/billing-roles."
-          },
-          "WorkTypeId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Work type to apply. Determines the rate multiplier and the minimum/increment rounding applied to the logged duration. Optional — omit it and the ticket's own work type is used, else the user's, else the service provider's first. Get valid ids from GET /v1/work-types."
-          },
-          "ServiceLineId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Service line to bill this time against. Optional. Omit it and the ticket's own service line is used, else the first one whose configured billing roles and work types both cover the resolved role and type, else no contract. Send it as null to decline a contract outright, which suppresses the automatic contract assignment that would otherwise happen when the time is approved. When supplied, the serv"
-          },
-          "Comment": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Free-text note describing the work."
-          },
-          "Distance": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Distance travelled for this work, when the service provider bills mileage."
-          },
-          "Attachments": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "object",
-              "properties": {
-                "Name": {
-                  "type": "string",
-                  "description": "File name as it should be displayed."
-                },
-                "Url": {
-                  "type": "string",
-                  "description": "Location the file can be fetched from."
-                }
-              },
-              "additionalProperties": false
-            },
-            "description": "Files to attach to this entry. The serialised list must be 5000 characters or fewer."
-          }
-        },
-        "additionalProperties": false,
-        "description": "Logs time against a ticket."
-      }
-    }
-  },
-  {
     "operationId": "get_v1_time-entries_id",
     "method": "GET",
     "path": "/v1/time-entries/{id}",
@@ -5410,6 +5281,135 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
+    "operationId": "post_v1_time-entries",
+    "method": "POST",
+    "path": "/v1/time-entries",
+    "summary": "Logs time against a ticket.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_time_entries_write",
+    "action": "create",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "TicketId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ticket to log the time against. Send **either** this or TaskId, not both and not neither. Validated against the service provider - an unknown ticket is a 404. The entry is billed to the ticket's client; a ticket with no client is rejected with 409.",
+            "format": "uuid"
+          },
+          "TaskId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Task to log the time against, instead of a ticket. Validated the same way - an unknown task is a 404. The entry is billed to the client of the task's **project**, which is authoritative; the task's own copy of the client can lag behind. A task carries no billing defaults of its own, so the billing role, work type and billable status fall to the technician's defaults and then the service provider's",
+            "format": "uuid"
+          },
+          "StartedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the work started, as a single UTC instant. Supply any two of StartedOn, EndedOn and ActualHours and the third is derived. Supplying all three is accepted only when ActualHours agrees with the span between the two instants, to the same four decimal places GET reports it at; a disagreement is rejected rather than resolved by discarding one of the three.",
+            "format": "date-time"
+          },
+          "EndedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the work finished, as a single UTC instant. Must be later than `StartedOn`. See `StartedOn` for which combinations of the three time fields are accepted.",
+            "format": "date-time"
+          },
+          "ActualHours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Duration worked, in decimal hours. Must be greater than 0. This is the raw logged duration and is never pre-rounded: the work type's minimum and increment rounding is applied on top of it, and GET reports the rounded figure separately as AdjustedHours. See `StartedOn` for which combinations of the three time fields are accepted."
+          },
+          "BillableStatusId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Billable status for this entry: 1 = Billable, 2 = No charge, 3 = Non-billable; any other value is rejected. Optional — omit it and the ticket's own billable status is used, else the work type's, else Billable."
+          },
+          "UserId": {
+            "type": "integer",
+            "description": "User whose time this is. Validated against the service provider. Named UserId rather than TechnicianId because Gorelo uses \"user\", not \"technician\", in its own vocabulary."
+          },
+          "BillingRoleId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Billing role to charge at. Optional — omit it and the ticket's own billing role is used, else the user's, else the service provider's first. Get valid ids from GET /v1/billing-roles."
+          },
+          "WorkTypeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Work type to apply. Determines the rate multiplier and the minimum/increment rounding applied to the logged duration. Optional — omit it and the ticket's own work type is used, else the user's, else the service provider's first. Get valid ids from GET /v1/work-types."
+          },
+          "ServiceLineId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Service line to bill this time against. Optional. Omit it and the ticket's own service line is used, else the first one whose configured billing roles and work types both cover the resolved role and type, else no contract. Send it as null to decline a contract outright, which suppresses the automatic contract assignment that would otherwise happen when the time is approved. When supplied, the serv"
+          },
+          "Comment": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-text note describing the work."
+          },
+          "Distance": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Distance travelled for this work, when the service provider bills mileage."
+          },
+          "Attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "Name": {
+                  "type": "string",
+                  "description": "File name as it should be displayed."
+                },
+                "Url": {
+                  "type": "string",
+                  "description": "Location the file can be fetched from."
+                }
+              },
+              "additionalProperties": false
+            },
+            "description": "Files to attach to this entry. The serialised list must be 5000 characters or fewer."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Logs time against a ticket."
+      }
+    }
+  },
+  {
     "operationId": "patch_v1_time-entries_id",
     "method": "PATCH",
     "path": "/v1/time-entries/{id}",
@@ -5427,7 +5427,7 @@ export const OPERATIONS: OperationDef[] = [
     ],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_time_entries",
+    "tool": "gorelo_time_entries_write",
     "action": "update",
     "tier": "write",
     "body": {
@@ -5515,6 +5515,78 @@ export const OPERATIONS: OperationDef[] = [
     }
   },
   {
+    "operationId": "get_v1_uptime_id",
+    "method": "GET",
+    "path": "/v1/uptime/{id}",
+    "summary": "Gets a single uptime check by id.",
+    "params": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Uptime check identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_uptime",
+    "action": "get",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_uptime",
+    "method": "GET",
+    "path": "/v1/uptime",
+    "summary": "Lists uptime checks for the service provider using cursor pagination. Results are sorted by `createdOn` descending (newest first).",
+    "params": [
+      {
+        "name": "ClientIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated client ids to include. Omit for every client."
+      },
+      {
+        "name": "TypeIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated check type ids to include: 1 ICMP, 2 HTTP, 3 TCP."
+      },
+      {
+        "name": "TagIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated tag ids. A check is included if it carries any one of them."
+      },
+      {
+        "name": "Query",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Keyword matched against the check description. Up to 200 characters."
+      }
+    ],
+    "response": "json",
+    "paginated": true,
+    "tool": "gorelo_uptime",
+    "action": "list",
+    "tier": "read"
+  },
+  {
     "operationId": "post_v1_uptime",
     "method": "POST",
     "path": "/v1/uptime",
@@ -5522,7 +5594,7 @@ export const OPERATIONS: OperationDef[] = [
     "params": [],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_uptime",
+    "tool": "gorelo_uptime_write",
     "action": "create",
     "tier": "write",
     "body": {
@@ -5627,78 +5699,6 @@ export const OPERATIONS: OperationDef[] = [
     }
   },
   {
-    "operationId": "get_v1_uptime_id",
-    "method": "GET",
-    "path": "/v1/uptime/{id}",
-    "summary": "Gets a single uptime check by id.",
-    "params": [
-      {
-        "name": "id",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "Uptime check identifier."
-      }
-    ],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_uptime",
-    "action": "get",
-    "tier": "read"
-  },
-  {
-    "operationId": "get_v1_uptime",
-    "method": "GET",
-    "path": "/v1/uptime",
-    "summary": "Lists uptime checks for the service provider using cursor pagination. Results are sorted by `createdOn` descending (newest first).",
-    "params": [
-      {
-        "name": "ClientIds",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string"
-        },
-        "description": "Comma-separated client ids to include. Omit for every client."
-      },
-      {
-        "name": "TypeIds",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string"
-        },
-        "description": "Comma-separated check type ids to include: 1 ICMP, 2 HTTP, 3 TCP."
-      },
-      {
-        "name": "TagIds",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string"
-        },
-        "description": "Comma-separated tag ids. A check is included if it carries any one of them."
-      },
-      {
-        "name": "Query",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string"
-        },
-        "description": "Keyword matched against the check description. Up to 200 characters."
-      }
-    ],
-    "response": "json",
-    "paginated": true,
-    "tool": "gorelo_uptime",
-    "action": "list",
-    "tier": "read"
-  },
-  {
     "operationId": "patch_v1_uptime_id",
     "method": "PATCH",
     "path": "/v1/uptime/{id}",
@@ -5717,7 +5717,7 @@ export const OPERATIONS: OperationDef[] = [
     ],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_uptime",
+    "tool": "gorelo_uptime_write",
     "action": "update",
     "tier": "write",
     "body": {

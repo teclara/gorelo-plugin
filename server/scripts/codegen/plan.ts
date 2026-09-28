@@ -1,5 +1,13 @@
 import type { BodyDef, HttpMethod, OperationDef, ParamDef, Tier } from "../../src/types.js";
-import { FULL_BY_DEFAULT_TOOLS, OVERRIDES, type Override, resolveRoute } from "../../tool-map.js";
+import {
+  ADMIN_TOOL,
+  FULL_BY_DEFAULT_TOOLS,
+  OVERRIDES,
+  type Override,
+  resolveRoute,
+  toolFor,
+  WRITE_SUFFIX,
+} from "../../tool-map.js";
 import { cleanDescription, normalizeSchema } from "./schema.js";
 
 export type OpenApiSpec = {
@@ -81,6 +89,8 @@ export function planOperations(
       if (Object.hasOwn(overrides, operationId)) used.add(operationId);
       const override = overrides[operationId] ?? {};
       const { tool, base } = resolveRoute(path);
+      if (tool === ADMIN_TOOL || tool.endsWith(WRITE_SUFFIX))
+        throw new Error(`${path} maps to the reserved tool name ${tool}; add a ROUTES entry in tool-map.ts`);
       const action = override.action ?? autoAction(method, path, base);
       const tier = override.tier ?? defaultTier(method, tool);
 
@@ -120,7 +130,7 @@ export function planOperations(
       if (tier === "full") {
         out.push({
           ...common,
-          tool: "gorelo_admin",
+          tool: ADMIN_TOOL,
           action: `${resource}_${action}`,
           tier,
           body: planBody(op, components, []),
@@ -129,7 +139,7 @@ export function planOperations(
         const body = planBody(op, components, strip);
         out.push({
           ...common,
-          tool,
+          tool: toolFor(tool, method),
           action,
           tier,
           ...(body ? { body } : {}),
@@ -138,7 +148,7 @@ export function planOperations(
         if (override.adminCopy) {
           out.push({
             ...common,
-            tool: "gorelo_admin",
+            tool: ADMIN_TOOL,
             action: `${resource}_${action}`,
             tier: "full",
             body: planBody(op, components, []),

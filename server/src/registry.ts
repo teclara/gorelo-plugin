@@ -157,11 +157,16 @@ export class Registry {
         const list = [...actions.values()].sort((a, b) => a.action.localeCompare(b.action));
         const readOnly = list.every((o) => o.method === "GET");
         const lines = list.map((o) => `- ${o.action}: ${o.summary}`);
-        const resource = name.replace(/^gorelo_/, "").replace(/_/g, " ");
+        const writes = name.endsWith("_write");
+        const resource = name
+          .replace(/^gorelo_/, "")
+          .replace(/_write$/, "")
+          .replace(/_/g, " ");
         return {
           name,
           description: [
-            TOOL_BLURBS[name] ?? `Gorelo ${resource}. Call with {"action": ..., "params": {...}}.`,
+            TOOL_BLURBS[name] ??
+              `Gorelo ${resource}${writes ? ", write actions (these change data)" : ""}. Call with {"action": ..., "params": {...}}.`,
             "Actions:",
             ...lines,
           ].join("\n"),

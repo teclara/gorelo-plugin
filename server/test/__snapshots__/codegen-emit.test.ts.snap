@@ -137,7 +137,7 @@ export const OPERATIONS: OperationDef[] = [
     "params": [],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_attachments",
+    "tool": "gorelo_attachments_write",
     "action": "upload",
     "tier": "write",
     "body": {
@@ -185,6 +185,27 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
+    "operationId": "get_v1_invoices_invoiceId_pdf",
+    "method": "GET",
+    "path": "/v1/invoices/{invoiceId}/pdf",
+    "summary": "Downloads an invoice PDF.",
+    "params": [
+      {
+        "name": "invoiceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    ],
+    "response": "binary",
+    "paginated": false,
+    "tool": "gorelo_invoices",
+    "action": "pdf",
+    "tier": "read"
+  },
+  {
     "operationId": "post_v1_invoices",
     "method": "POST",
     "path": "/v1/invoices",
@@ -192,7 +213,7 @@ export const OPERATIONS: OperationDef[] = [
     "params": [],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_invoices",
+    "tool": "gorelo_invoices_write",
     "action": "create",
     "tier": "write",
     "body": {
@@ -227,27 +248,6 @@ export const OPERATIONS: OperationDef[] = [
     }
   },
   {
-    "operationId": "get_v1_invoices_invoiceId_pdf",
-    "method": "GET",
-    "path": "/v1/invoices/{invoiceId}/pdf",
-    "summary": "Downloads an invoice PDF.",
-    "params": [
-      {
-        "name": "invoiceId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "integer"
-        }
-      }
-    ],
-    "response": "binary",
-    "paginated": false,
-    "tool": "gorelo_invoices",
-    "action": "pdf",
-    "tier": "read"
-  },
-  {
     "operationId": "post_v1_projects_projectId_tasks",
     "method": "POST",
     "path": "/v1/projects/{projectId}/tasks",
@@ -264,7 +264,7 @@ export const OPERATIONS: OperationDef[] = [
     ],
     "response": "json",
     "paginated": false,
-    "tool": "gorelo_project_tasks",
+    "tool": "gorelo_project_tasks_write",
     "action": "create",
     "tier": "write",
     "body": {
@@ -275,74 +275,6 @@ export const OPERATIONS: OperationDef[] = [
         "properties": {
           "Title": {
             "type": "string"
-          }
-        }
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_tickets",
-    "method": "POST",
-    "path": "/v1/tickets",
-    "summary": "Creates a ticket.",
-    "params": [],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_tickets",
-    "action": "create",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": true,
-      "schema": {
-        "type": "object",
-        "required": [
-          "Title",
-          "ClientId"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "Title": {
-            "type": "string",
-            "description": "Ticket title."
-          },
-          "ClientId": {
-            "type": "integer"
-          },
-          "DueOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "Priority": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "enum": [
-              1,
-              2,
-              3,
-              null
-            ]
-          },
-          "Parent": {
-            "type": "object",
-            "properties": {
-              "Name": {
-                "type": "string"
-              },
-              "Child": {
-                "type": "object",
-                "description": "Node (recursive; nested fields omitted)"
-              }
-            }
-          },
-          "Note": {
-            "type": "string",
-            "description": "See Title for rules."
           }
         }
       }
@@ -423,6 +355,74 @@ export const OPERATIONS: OperationDef[] = [
     "tool": "gorelo_tickets",
     "action": "list_statuses",
     "tier": "read"
+  },
+  {
+    "operationId": "post_v1_tickets",
+    "method": "POST",
+    "path": "/v1/tickets",
+    "summary": "Creates a ticket.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_tickets_write",
+    "action": "create",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": true,
+      "schema": {
+        "type": "object",
+        "required": [
+          "Title",
+          "ClientId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "Title": {
+            "type": "string",
+            "description": "Ticket title."
+          },
+          "ClientId": {
+            "type": "integer"
+          },
+          "DueOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "Priority": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "enum": [
+              1,
+              2,
+              3,
+              null
+            ]
+          },
+          "Parent": {
+            "type": "object",
+            "properties": {
+              "Name": {
+                "type": "string"
+              },
+              "Child": {
+                "type": "object",
+                "description": "Node (recursive; nested fields omitted)"
+              }
+            }
+          },
+          "Note": {
+            "type": "string",
+            "description": "See Title for rules."
+          }
+        }
+      }
+    }
   }
 ];
 "
