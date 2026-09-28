@@ -1,4 +1,5 @@
-import { readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { type FileHandle, open, realpath, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { Ajv, type ValidateFunction } from "ajv";
@@ -107,6 +108,12 @@ async function pathBelow(dir: string, real: string): Promise<string | undefined>
 }
 
 /**
+ * Read-only, without following a symlink swapped in as the last component after it was resolved,
+ * and without waiting for a writer when the path is a named pipe. Both flags are POSIX-only.
+ */
+const UPLOAD_OPEN_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0);
+
+/**
  * Resolves an upload path and refuses anything that looks like a secret or isn't a plain file.
  * Ticket text is untrusted, so a prompt-injected "attach ~/.ssh/id_rsa" must not work. Checks
  * both the given path and its symlink-resolved target. Returns the real path or an error message.
@@ -120,6 +127,21 @@ export async function checkUploadPath(
   filePath: string,
   allowedDir?: string,
 ): Promise<{ path: string } | { error: string }> {
+  const opened = await openUpload(filePath, allowedDir);
+  if ("error" in opened) return opened;
+  await opened.handle.close();
+  return { path: opened.path };
+}
+
+/**
+ * checkUploadPath, but returns the file opened, with the regular-file and size checks made on
+ * that open handle. Reading from the handle means the file checked is the file uploaded, even if
+ * the path is pointed somewhere else in between. The caller closes the handle.
+ */
+export async function openUpload(
+  filePath: string,
+  allowedDir?: string,
+): Promise<{ path: string; handle: FileHandle } | { error: string }> {
   const expanded =
     filePath === "~" || filePath.startsWith("~/") ? join(homedir(), filePath.slice(1)) : filePath;
   const given = resolve(expanded);
@@ -138,14 +160,27 @@ export async function checkUploadPath(
       };
     }
   }
-  const info = await stat(real);
-  if (!info.isFile()) return { error: `Refusing to upload ${given}: it is not a regular file.` };
-  if (info.size > MAX_UPLOAD_BYTES) {
-    return {
-      error: `Refusing to upload ${given}: it is ${(info.size / 1024 / 1024).toFixed(1)} MB, over the 25 MB limit.`,
-    };
+  let handle: FileHandle;
+  try {
+    handle = await open(real, UPLOAD_OPEN_FLAGS);
+  } catch {
+    return { error: `Cannot upload ${given}: the file does not exist or cannot be read.` };
   }
-  return { path: real };
+  let refusal: string;
+  try {
+    const info = await handle.stat();
+    if (!info.isFile()) refusal = `Refusing to upload ${given}: it is not a regular file.`;
+    else if (info.size > MAX_UPLOAD_BYTES) refusal = `Refusing to upload ${given}: ${overLimit(info.size)}`;
+    else return { path: real, handle };
+  } catch {
+    refusal = `Cannot upload ${given}: the file does not exist or cannot be read.`;
+  }
+  await handle.close().catch(() => {});
+  return { error: refusal };
+}
+
+function overLimit(bytes: number): string {
+  return `it is ${(bytes / 1024 / 1024).toFixed(1)} MB, over the 25 MB limit.`;
 }
 
 /** Folder under the data directory that binary responses are saved to. */
@@ -287,20 +322,22 @@ export class Registry {
       return { text: `Invalid params for ${tool}.${action}: ${detail}`, isError: true };
     }
 
-    let uploadPath: string | undefined;
+    let upload: FileHandle | undefined;
     if (op.body?.contentType === "multipart/form-data") {
-      const checked = await checkUploadPath(String(params.file_path), join(this.deps.dataDir, DOWNLOADS_DIR));
-      if ("error" in checked) return this.deny(tool, action, params, checked.error);
-      uploadPath = checked.path;
+      const opened = await openUpload(String(params.file_path), join(this.deps.dataDir, DOWNLOADS_DIR));
+      if ("error" in opened) return this.deny(tool, action, params, opened.error);
+      upload = opened.handle;
     }
 
     const isWrite = op.method !== "GET";
     let result: unknown;
     let execError: string | undefined;
     try {
-      result = await this.execute(op, params, uploadPath);
+      result = await this.execute(op, params, upload);
     } catch (err) {
       execError = err instanceof Error ? err.message : String(err);
+    } finally {
+      await upload?.close().catch(() => {});
     }
 
     const auditWarning = isWrite
@@ -347,7 +384,7 @@ export class Registry {
   private async execute(
     op: OperationDef,
     params: Record<string, unknown>,
-    uploadPath?: string,
+    upload?: FileHandle,
   ): Promise<unknown> {
     const { client, dataDir } = this.deps;
     const { body, limit, cursor, file_path, ...rest } = params as {
@@ -376,7 +413,12 @@ export class Registry {
     if (op.body?.contentType === "multipart/form-data") {
       const form = new FormData();
       for (const [k, v] of Object.entries(body ?? {})) form.set(k, String(v));
-      const data = await readFile(uploadPath ?? String(file_path));
+      if (!upload) throw new Error(`Cannot upload ${String(file_path)}: the file was not opened.`);
+      // Read from the handle that was checked, not from the path again.
+      const data = await upload.readFile();
+      if (data.length > MAX_UPLOAD_BYTES) {
+        throw new Error(`Refusing to upload ${String(file_path)}: ${overLimit(data.length)}`);
+      }
       form.set("file", new Blob([data]), basename(String(file_path)));
       return (await client.multipart(op, form)).data;
     }

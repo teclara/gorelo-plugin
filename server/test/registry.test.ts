@@ -1,9 +1,12 @@
+import { execFileSync } from "node:child_process";
 import {
   chmod,
+  type FileHandle,
   mkdir,
   mkdtemp,
   readFile,
   realpath,
+  rename,
   stat,
   symlink,
   truncate,
@@ -11,12 +14,24 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { planOperations } from "../scripts/codegen/plan.js";
 import { GoreloClient } from "../src/http.js";
-import { checkUploadPath, Registry } from "../src/registry.js";
+import { checkUploadPath, openUpload, Registry } from "../src/registry.js";
 import type { Tier } from "../src/types.js";
 import spec from "./fixtures/mini-spec.json" with { type: "json" };
+
+/** Every file the code under test opens, so tests can check that handles are closed again. */
+const openedHandles = vi.hoisted(() => [] as { path: string; handle: FileHandle }[]);
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  const open: typeof actual.open = async (path, ...rest) => {
+    const handle = await actual.open(path, ...rest);
+    openedHandles.push({ path: String(path), handle });
+    return handle;
+  };
+  return { ...actual, default: { ...actual, open }, open };
+});
 
 const ops = planOperations(spec as never);
 
@@ -680,5 +695,70 @@ describe("downloads", () => {
     expect(res.isError).toBe(false);
     const { path } = JSON.parse(res.text);
     expect(dirname(path)).toBe(join(dataDir, "downloads"));
+  });
+});
+
+describe("upload file handling", () => {
+  // Root ignores permission bits, and Windows has none.
+  const canDenyRead = process.platform !== "win32" && process.getuid?.() !== 0;
+
+  it.skipIf(!canDenyRead)(
+    "returns an error instead of rejecting when the file cannot be opened",
+    async () => {
+      const { reg, calls, dataDir } = await setup("write");
+      const file = join(dataDir, "locked.txt");
+      await writeFile(file, "hello");
+      await chmod(file, 0o000);
+      const checked = await checkUploadPath(file);
+      expect(checked).toHaveProperty("error");
+      expect((checked as { error: string }).error).toMatch(/locked\.txt.*cannot be read/);
+      const res = await reg.call(toolFor("gorelo_attachments", "upload"), uploadArgs(file));
+      expect(res.isError).toBe(true);
+      expect(res.text).toMatch(/cannot be read/);
+      expect(calls).toHaveLength(0);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")("refuses a named pipe without waiting on it", async () => {
+    const { reg, calls, dataDir } = await setup("write");
+    const pipe = join(dataDir, "pipe");
+    execFileSync("mkfifo", [pipe]);
+    const res = await reg.call(toolFor("gorelo_attachments", "upload"), uploadArgs(pipe));
+    expect(res.isError).toBe(true);
+    expect(res.text).toMatch(/not a regular file/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("reads from the handle it checked, so a file swapped in afterwards is not what is sent", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "gorelo-reg-"));
+    const file = join(dir, "report.txt");
+    await writeFile(file, "checked");
+    const opened = await openUpload(file);
+    if ("error" in opened) throw new Error(opened.error);
+    try {
+      await writeFile(join(dir, "other.txt"), "swapped in later");
+      await rename(join(dir, "other.txt"), file);
+      expect(opened.path).toBe(await realpath(file));
+      expect((await opened.handle.readFile()).toString()).toBe("checked");
+    } finally {
+      await opened.handle.close();
+    }
+  });
+
+  it.each([
+    ["succeeds", () => ok({ Name: "a.txt" }), false],
+    ["fails", () => new Response("{}", { status: 403 }), true],
+  ])("closes the file handle when the upload %s", async (_outcome, response, isError) => {
+    const { reg, calls, dataDir } = await setup("write", [response()]);
+    const file = join(dataDir, "a.txt");
+    await writeFile(file, "hello");
+    openedHandles.length = 0;
+    const res = await reg.call(toolFor("gorelo_attachments", "upload"), uploadArgs(file));
+    expect(res.isError).toBe(isError);
+    const sent = (calls[0]!.init.body as FormData).get("file") as File;
+    expect(await sent.text()).toBe("hello");
+    // The upload itself and the audit log entry; a closed FileHandle reports fd -1.
+    expect(openedHandles.map((h) => h.path)).toEqual([await realpath(file), join(dataDir, "audit.jsonl")]);
+    expect(openedHandles.map((h) => h.handle.fd)).toEqual([-1, -1]);
   });
 });
