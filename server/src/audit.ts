@@ -7,10 +7,13 @@ export interface AuditEntry {
   params: unknown;
   /**
    * "ok": Gorelo accepted the call. "error": it was sent and failed (or may have timed out).
+   * "denied": the server refused it before anything was sent; see `reason`.
    * The HTTP status code is deliberately not recorded, because the client does not report it.
    */
-  status: "ok" | "error";
+  status: "ok" | "error" | "denied";
   error?: string;
+  /** Why a denied call was refused. */
+  reason?: string;
 }
 
 const SECRET_KEY = /key|token|secret|password/i;

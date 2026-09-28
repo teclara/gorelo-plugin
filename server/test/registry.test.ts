@@ -398,3 +398,107 @@ describe.skipIf(process.platform === "win32")("download permissions", () => {
     expect(await fileMode(join(dataDir, "downloads"))).toBe(0o700);
   });
 });
+
+const auditLines = async (dataDir: string) =>
+  (await readFile(join(dataDir, "audit.jsonl"), "utf8"))
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+
+const uploadArgs = (file_path: string) => ({
+  action: "upload",
+  params: { file_path, body: { itemType: "ticket", itemId: "00000000-0000-0000-0000-000000000001" } },
+});
+
+describe("audit of refused calls", () => {
+  it("audits a call to an action above the configured tier as denied", async () => {
+    const { reg, calls, dataDir } = await setup("read");
+    const tool = toolFor("gorelo_tickets", "create");
+    const res = await reg.call(tool, { action: "create", params: { body: { Title: "x", ClientId: 1 } } });
+    expect(res.isError).toBe(true);
+    expect(res.text).toMatch(/requires the write tier/);
+    const lines = await auditLines(dataDir);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({
+      tool,
+      action: "create",
+      status: "denied",
+      params: { body: { Title: "x", ClientId: 1 } },
+    });
+    expect(lines[0].reason).toMatch(/requires the write tier/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("audits a refused upload path as denied, with the path and the reason", async () => {
+    const { reg, calls, dataDir } = await setup("write");
+    await writeFile(join(dataDir, ".env"), "SECRET=1");
+    const tool = toolFor("gorelo_attachments", "upload");
+    const res = await reg.call(tool, uploadArgs(join(dataDir, ".env")));
+    expect(res.isError).toBe(true);
+    const lines = await auditLines(dataDir);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ tool, action: "upload", status: "denied" });
+    expect(lines[0].params.file_path).toBe(join(dataDir, ".env"));
+    expect(lines[0].reason).toMatch(/hidden/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("audits non-regular and oversize uploads as denied", async () => {
+    const { reg, dataDir } = await setup("write");
+    await mkdir(join(dataDir, "folder"));
+    const big = join(dataDir, "big.bin");
+    await writeFile(big, "");
+    await truncate(big, 25 * 1024 * 1024 + 1);
+    const tool = toolFor("gorelo_attachments", "upload");
+    await reg.call(tool, uploadArgs(join(dataDir, "folder")));
+    await reg.call(tool, uploadArgs(big));
+    const lines = await auditLines(dataDir);
+    expect(lines.map((l) => l.status)).toEqual(["denied", "denied"]);
+    expect(lines[0].reason).toMatch(/not a regular file/);
+    expect(lines[1].reason).toMatch(/25 MB/);
+  });
+
+  it("audits an attempt to supply a server-forced body key as denied", async () => {
+    const { reg, calls, dataDir } = await setup("write");
+    const tool = toolFor("gorelo_invoices", "create");
+    const res = await reg.call(tool, {
+      action: "create",
+      params: { body: { ClientId: 3, LineItems: [{ Name: "x" }], StatusId: 5 } },
+    });
+    expect(res.isError).toBe(true);
+    const lines = await auditLines(dataDir);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ tool, action: "create", status: "denied" });
+    expect(lines[0].params.body.StatusId).toBe(5);
+    expect(lines[0].reason).toMatch(/StatusId/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("does not audit unknown tools, unknown actions or invalid params", async () => {
+    const { reg, dataDir } = await setup("write");
+    await reg.call("gorelo_nope", { action: "list" });
+    await reg.call(toolFor("gorelo_tickets", "list"), { action: "explode" });
+    await reg.call(toolFor("gorelo_tickets", "create"), {
+      action: "create",
+      params: { body: { Title: 5, ClientId: 1 } },
+    });
+    await expect(stat(join(dataDir, "audit.jsonl"))).rejects.toThrow(/ENOENT/);
+  });
+
+  it("still returns the refusal, with a trailing warning, when the audit log cannot be written", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "gorelo-reg-"));
+    const dataDir = join(dir, "not-a-dir");
+    await writeFile(dataDir, "a file, so the audit log cannot be created beneath it");
+    const reg = new Registry(ops, "read", {
+      client: new GoreloClient({ apiKey: "k", baseUrl: "https://x.test" }),
+      dataDir,
+    });
+    const res = await reg.call(toolFor("gorelo_tickets", "create"), {
+      action: "create",
+      params: { body: { Title: "x", ClientId: 1 } },
+    });
+    expect(res.isError).toBe(true);
+    expect(res.text).toMatch(/^.*requires the write tier/);
+    expect(res.text).toMatch(/Warning: audit log write failed/);
+  });
+});

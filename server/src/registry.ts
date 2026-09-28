@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 import { Ajv, type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
-import { appendAudit, ensurePrivateDir, PRIVATE_FILE_MODE } from "./audit.js";
+import { type AuditEntry, appendAudit, ensurePrivateDir, PRIVATE_FILE_MODE } from "./audit.js";
 import type { GoreloClient } from "./http.js";
 import { collectPages, DEFAULT_LIMIT, MAX_LIMIT, markUntrusted, PAGE_SIZE, renderResult } from "./shape.js";
 import { type JsonSchema, type OperationDef, TIER_RANK, type Tier } from "./types.js";
@@ -207,21 +207,25 @@ export class Registry {
       const names = [...(allowed?.keys() ?? [])].sort().join(", ");
       return { text: `Unknown action "${action}" for ${tool}. Available: ${names}`, isError: true };
     }
+    const params = args.params ?? {};
     const op = allowed?.get(action);
     if (!op) {
-      return {
-        text: `${tool}.${action} requires the ${known.tier} tier; this install is ${this.tier}. Change "Access tier" in /plugin config for gorelo-plugin.`,
-        isError: true,
-      };
+      return this.deny(
+        tool,
+        action,
+        params,
+        `${tool}.${action} requires the ${known.tier} tier; this install is ${this.tier}. Change "Access tier" in /plugin config for gorelo-plugin.`,
+      );
     }
 
-    const params = args.params ?? {};
     const forced = conflictingForcedKeys(params.body, op.forceBody);
     if (forced.length) {
-      return {
-        text: `${forced.join(", ")} is set by the server for ${tool}.${action} and cannot be supplied.${tool === "gorelo_invoices" ? " Use gorelo_admin.invoices_create (full tier) to create an approved invoice." : ""}`,
-        isError: true,
-      };
+      return this.deny(
+        tool,
+        action,
+        params,
+        `${forced.join(", ")} is set by the server for ${tool}.${action} and cannot be supplied.${tool === "gorelo_invoices" ? " Use gorelo_admin.invoices_create (full tier) to create an approved invoice." : ""}`,
+      );
     }
     const validate = this.validator(op);
     if (!validate(params)) {
@@ -239,7 +243,7 @@ export class Registry {
     let uploadPath: string | undefined;
     if (op.body?.contentType === "multipart/form-data") {
       const checked = await checkUploadPath(String(params.file_path));
-      if ("error" in checked) return { text: checked.error, isError: true };
+      if ("error" in checked) return this.deny(tool, action, params, checked.error);
       uploadPath = checked.path;
     }
 
@@ -252,25 +256,45 @@ export class Registry {
       execError = err instanceof Error ? err.message : String(err);
     }
 
-    // Audit failures must never mask (or duplicate the report of) a write that already happened,
-    // and must never make call() reject — they're reported as a trailing warning instead.
-    let auditWarning = "";
-    if (isWrite) {
-      try {
-        await appendAudit(
-          this.deps.dataDir,
+    const auditWarning = isWrite
+      ? await this.audit(
           execError === undefined
             ? { tool, action, params, status: "ok" }
             : { tool, action, params, status: "error", error: execError },
-        );
-      } catch (auditErr) {
-        const auditMessage = auditErr instanceof Error ? auditErr.message : String(auditErr);
-        auditWarning = `\n\nWarning: audit log write failed: ${auditMessage}`;
-      }
-    }
+        )
+      : "";
 
     if (execError !== undefined) return { text: execError + auditWarning, isError: true };
     return { text: renderResult(markUntrusted(result)) + auditWarning, isError: false };
+  }
+
+  /**
+   * Appends to the audit log and returns a warning to append to the result ("" on success).
+   * Audit failures must never mask (or duplicate the report of) a write that already happened,
+   * and must never make call() reject — they're reported as a trailing warning instead.
+   */
+  private async audit(entry: AuditEntry): Promise<string> {
+    try {
+      await appendAudit(this.deps.dataDir, entry);
+      return "";
+    } catch (auditErr) {
+      const auditMessage = auditErr instanceof Error ? auditErr.message : String(auditErr);
+      return `\n\nWarning: audit log write failed: ${auditMessage}`;
+    }
+  }
+
+  /**
+   * Refuses a call on security grounds (tier, upload path, server-forced body key) and audits
+   * the attempt: a refusal is what a prompt injection in ticket text looks like from here.
+   */
+  private async deny(
+    tool: string,
+    action: string,
+    params: unknown,
+    reason: string,
+  ): Promise<{ text: string; isError: boolean }> {
+    const auditWarning = await this.audit({ tool, action, params, status: "denied", reason });
+    return { text: reason + auditWarning, isError: true };
   }
 
   private async execute(
