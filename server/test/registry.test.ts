@@ -1,10 +1,20 @@
-import { chmod, mkdir, mkdtemp, readFile, stat, symlink, truncate, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  stat,
+  symlink,
+  truncate,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { planOperations } from "../scripts/codegen/plan.js";
 import { GoreloClient } from "../src/http.js";
-import { Registry } from "../src/registry.js";
+import { checkUploadPath, Registry } from "../src/registry.js";
 import type { Tier } from "../src/types.js";
 import spec from "./fixtures/mini-spec.json" with { type: "json" };
 
@@ -500,5 +510,175 @@ describe("audit of refused calls", () => {
     expect(res.isError).toBe(true);
     expect(res.text).toMatch(/^.*requires the write tier/);
     expect(res.text).toMatch(/Warning: audit log write failed/);
+  });
+});
+
+/** A data directory under a dot-directory, as in a real install (~/.claude/plugins/data/...). */
+async function hiddenDataDir() {
+  const dataDir = join(await mkdtemp(join(tmpdir(), "gorelo-reg-")), ".claude", "data");
+  const downloads = join(dataDir, "downloads");
+  await mkdir(downloads, { recursive: true });
+  return { dataDir, downloads };
+}
+
+describe("checkUploadPath with an allowed directory", () => {
+  it("still refuses a file under a dot-directory when no directory is allowed", async () => {
+    const { downloads } = await hiddenDataDir();
+    await writeFile(join(downloads, "invoice-1.pdf"), "pdf");
+    const res = await checkUploadPath(join(downloads, "invoice-1.pdf"));
+    expect(res).toHaveProperty("error");
+  });
+
+  it("accepts a file inside the allowed directory although an ancestor is a dot-directory", async () => {
+    const { downloads } = await hiddenDataDir();
+    await writeFile(join(downloads, "invoice-1.pdf"), "pdf");
+    const res = await checkUploadPath(join(downloads, "invoice-1.pdf"), downloads);
+    expect(res).toEqual({ path: await realpath(join(downloads, "invoice-1.pdf")) });
+  });
+
+  it("refuses hidden files and dot-directories below the allowed directory", async () => {
+    const { downloads } = await hiddenDataDir();
+    await writeFile(join(downloads, ".env"), "SECRET=1");
+    await mkdir(join(downloads, ".secret"));
+    await writeFile(join(downloads, ".secret", "file.pdf"), "pdf");
+    for (const path of [join(downloads, ".env"), join(downloads, ".secret", "file.pdf")]) {
+      const res = await checkUploadPath(path, downloads);
+      expect(res).toHaveProperty("error");
+      expect((res as { error: string }).error).toMatch(/hidden/);
+    }
+  });
+
+  it("refuses a symlink inside the allowed directory that points outside it", async () => {
+    const { dataDir, downloads } = await hiddenDataDir();
+    await mkdir(join(dataDir, ".ssh"));
+    await writeFile(join(dataDir, ".ssh", "id_rsa"), "private key");
+    await symlink(join(dataDir, ".ssh", "id_rsa"), join(downloads, "invoice-1.pdf"));
+    const res = await checkUploadPath(join(downloads, "invoice-1.pdf"), downloads);
+    expect(res).toHaveProperty("error");
+    expect((res as { error: string }).error).toMatch(/hidden/);
+  });
+
+  it("does not treat a sibling whose name starts with the allowed directory's as inside it", async () => {
+    const { dataDir, downloads } = await hiddenDataDir();
+    await mkdir(join(dataDir, "downloads-other"));
+    await writeFile(join(dataDir, "downloads-other", "a.pdf"), "pdf");
+    const res = await checkUploadPath(join(dataDir, "downloads-other", "a.pdf"), downloads);
+    expect(res).toHaveProperty("error");
+  });
+
+  it("refuses the allowed directory itself and paths that climb out of it", async () => {
+    const { dataDir, downloads } = await hiddenDataDir();
+    await writeFile(join(dataDir, "audit.jsonl"), "{}");
+    expect(await checkUploadPath(downloads, downloads)).toHaveProperty("error");
+    expect(await checkUploadPath(join(downloads, "..", "audit.jsonl"), downloads)).toHaveProperty("error");
+  });
+
+  it("behaves as before when the allowed directory does not exist", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "gorelo-reg-"));
+    await writeFile(join(dir, "a.txt"), "hello");
+    const res = await checkUploadPath(join(dir, "a.txt"), join(dir, "downloads"));
+    expect(res).toEqual({ path: await realpath(join(dir, "a.txt")) });
+  });
+});
+
+describe("downloads", () => {
+  async function registryIn(dataDir: string, tier: Tier, responses: Response[], operations = ops) {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const client = new GoreloClient({
+      apiKey: "k",
+      baseUrl: "https://x.test",
+      fetchImpl: async (url, init) => {
+        calls.push({ url, init });
+        const r = responses.shift();
+        if (!r) throw new Error("unexpected HTTP call");
+        return r;
+      },
+      sleep: async () => {},
+    });
+    return { reg: new Registry(operations, tier, { client, dataDir }), calls };
+  }
+
+  it("can attach a file the plugin downloaded, although the data directory is hidden", async () => {
+    const { dataDir } = await hiddenDataDir();
+    const { reg, calls } = await registryIn(dataDir, "write", [
+      pdfResponse(),
+      ok({ Name: "invoice-42.pdf", Url: "https://cdn/invoice-42.pdf" }),
+    ]);
+    const download = await reg.call(toolFor("gorelo_invoices", "pdf"), {
+      action: "pdf",
+      params: { invoiceId: 42 },
+    });
+    const { path } = JSON.parse(download.text);
+    const res = await reg.call(toolFor("gorelo_attachments", "upload"), uploadArgs(path));
+    expect(res.text).not.toMatch(/Refusing/);
+    expect(res.isError).toBe(false);
+    const file = (calls[1]!.init.body as FormData).get("file") as File;
+    expect(file.name).toBe("invoice-42.pdf");
+    expect(Array.from(new Uint8Array(await file.arrayBuffer()))).toEqual([37, 80, 68, 70]);
+  });
+
+  it("still refuses other files under the hidden data directory, such as the audit log", async () => {
+    const { dataDir } = await hiddenDataDir();
+    const { reg, calls } = await registryIn(dataDir, "write", []);
+    await writeFile(join(dataDir, "audit.jsonl"), "{}\n");
+    const res = await reg.call(
+      toolFor("gorelo_attachments", "upload"),
+      uploadArgs(join(dataDir, "audit.jsonl")),
+    );
+    expect(res.isError).toBe(true);
+    expect(res.text).toMatch(/hidden/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("does not overwrite an earlier download of the same record", async () => {
+    const { reg, dataDir } = await setup("read", [
+      pdfResponse(),
+      new Response(new Uint8Array([1, 2, 3]), { status: 200 }),
+      new Response(new Uint8Array([4, 5]), { status: 200 }),
+    ]);
+    const tool = toolFor("gorelo_invoices", "pdf");
+    const paths: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const res = await reg.call(tool, { action: "pdf", params: { invoiceId: 42 } });
+      paths.push(JSON.parse(res.text).path);
+    }
+    expect(paths).toEqual([
+      join(dataDir, "downloads", "invoice-42.pdf"),
+      join(dataDir, "downloads", "invoice-42-1.pdf"),
+      join(dataDir, "downloads", "invoice-42-2.pdf"),
+    ]);
+    expect(Array.from(await readFile(paths[0]!))).toEqual([37, 80, 68, 70]);
+    expect(Array.from(await readFile(paths[1]!))).toEqual([1, 2, 3]);
+    expect(Array.from(await readFile(paths[2]!))).toEqual([4, 5]);
+  });
+
+  it("uses .bin when the operation is not known to return a PDF", async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), "gorelo-reg-"));
+    const operations = ops.map((o) =>
+      o.response === "binary" ? { ...o, path: o.path.replace(/\/pdf$/, "/export") } : o,
+    );
+    const { reg } = await registryIn(dataDir, "read", [pdfResponse()], operations);
+    const res = await reg.call(toolFor("gorelo_invoices", "pdf"), {
+      action: "pdf",
+      params: { invoiceId: 42 },
+    });
+    expect(JSON.parse(res.text).path).toBe(join(dataDir, "downloads", "invoice-42.bin"));
+  });
+
+  it("keeps path separators in a parameter value out of the file name", async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), "gorelo-reg-"));
+    const operations = ops.map((o) =>
+      o.response === "binary"
+        ? { ...o, params: o.params.map((p) => ({ ...p, in: "query" as const, schema: { type: "string" } })) }
+        : o,
+    );
+    const { reg } = await registryIn(dataDir, "read", [pdfResponse()], operations);
+    const res = await reg.call(toolFor("gorelo_invoices", "pdf"), {
+      action: "pdf",
+      params: { invoiceId: "../../escape" },
+    });
+    expect(res.isError).toBe(false);
+    const { path } = JSON.parse(res.text);
+    expect(dirname(path)).toBe(join(dataDir, "downloads"));
   });
 });

@@ -1,6 +1,6 @@
 import { readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join, resolve, sep } from "node:path";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { Ajv, type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
 import { type AuditEntry, appendAudit, ensurePrivateDir, PRIVATE_FILE_MODE } from "./audit.js";
@@ -89,11 +89,37 @@ function stripForcedKeys(
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 /**
+ * The part of `real` (already symlink-resolved) below `dir`, or undefined when `real` is not
+ * strictly inside it or `dir` does not exist.
+ */
+async function pathBelow(dir: string, real: string): Promise<string | undefined> {
+  let root: string;
+  try {
+    root = await realpath(resolve(dir));
+  } catch {
+    return undefined;
+  }
+  const below = relative(root, real);
+  if (below === "" || below === ".." || below.startsWith(`..${sep}`) || isAbsolute(below)) {
+    return undefined;
+  }
+  return below;
+}
+
+/**
  * Resolves an upload path and refuses anything that looks like a secret or isn't a plain file.
  * Ticket text is untrusted, so a prompt-injected "attach ~/.ssh/id_rsa" must not work. Checks
  * both the given path and its symlink-resolved target. Returns the real path or an error message.
+ *
+ * `allowedDir` is a directory whose own location is trusted even though it sits under a
+ * dot-directory: the plugin's downloads folder, under ~/.claude. A file whose real path is inside
+ * it is checked for hidden segments below that directory only. Containment is decided after
+ * symlinks are resolved, so a link in there pointing at ~/.ssh is still refused.
  */
-export async function checkUploadPath(filePath: string): Promise<{ path: string } | { error: string }> {
+export async function checkUploadPath(
+  filePath: string,
+  allowedDir?: string,
+): Promise<{ path: string } | { error: string }> {
   const expanded =
     filePath === "~" || filePath.startsWith("~/") ? join(homedir(), filePath.slice(1)) : filePath;
   const given = resolve(expanded);
@@ -103,7 +129,8 @@ export async function checkUploadPath(filePath: string): Promise<{ path: string 
   } catch {
     return { error: `Cannot upload ${given}: the file does not exist or cannot be read.` };
   }
-  for (const candidate of [given, real]) {
+  const inside = allowedDir === undefined ? undefined : await pathBelow(allowedDir, real);
+  for (const candidate of inside === undefined ? [given, real] : [inside]) {
     const hidden = candidate.split(sep).find((segment) => segment.startsWith("."));
     if (hidden) {
       return {
@@ -119,6 +146,26 @@ export async function checkUploadPath(filePath: string): Promise<{ path: string 
     };
   }
   return { path: real };
+}
+
+/** Folder under the data directory that binary responses are saved to. */
+const DOWNLOADS_DIR = "downloads";
+
+/**
+ * Writes `bytes` to `<dir>/<stem><ext>`, or to `<stem>-1<ext>`, `<stem>-2<ext>`, ... when that
+ * name is taken, so an earlier download is never overwritten. Returns the path written.
+ */
+async function writeNew(dir: string, stem: string, ext: string, bytes: Uint8Array): Promise<string> {
+  for (let n = 0; ; n++) {
+    const path = join(dir, `${stem}${n ? `-${n}` : ""}${ext}`);
+    try {
+      // "wx" fails when the path exists (including as a symlink) instead of writing through it.
+      await writeFile(path, bytes, { flag: "wx", mode: PRIVATE_FILE_MODE });
+      return path;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    }
+  }
 }
 
 export class Registry {
@@ -242,7 +289,7 @@ export class Registry {
 
     let uploadPath: string | undefined;
     if (op.body?.contentType === "multipart/form-data") {
-      const checked = await checkUploadPath(String(params.file_path));
+      const checked = await checkUploadPath(String(params.file_path), join(this.deps.dataDir, DOWNLOADS_DIR));
       if ("error" in checked) return this.deny(tool, action, params, checked.error);
       uploadPath = checked.path;
     }
@@ -312,14 +359,17 @@ export class Registry {
 
     if (op.response === "binary") {
       const bytes = await client.binary(op, rest);
-      const dir = join(dataDir, "downloads");
+      const dir = join(dataDir, DOWNLOADS_DIR);
       await ensurePrivateDir(dir);
-      const id = Object.values(rest).map(String).join("-") || "file";
-      const path = join(
-        dir,
-        `${op.path.includes("invoices") ? "invoice" : op.tool.replace(/^gorelo_/, "")}-${id}.pdf`,
-      );
-      await writeFile(path, bytes, { mode: PRIVATE_FILE_MODE });
+      // Parameter values end up in the file name, so keep separators and dots out of it.
+      const id =
+        Object.values(rest)
+          .map((v) => String(v).replace(/[^A-Za-z0-9_-]/g, "_"))
+          .join("-") || "file";
+      const stem = `${op.path.includes("invoices") ? "invoice" : op.tool.replace(/^gorelo_/, "")}-${id}`;
+      // OperationDef only says "binary"; the path is the one place that names the format.
+      const ext = /\/pdf\/?$/i.test(op.path) ? ".pdf" : ".bin";
+      const path = await writeNew(dir, stem, ext, bytes);
       return { path, bytes: bytes.length };
     }
 
