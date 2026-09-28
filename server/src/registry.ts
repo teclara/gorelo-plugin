@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 import { Ajv, type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
+import { leanSchema, MAX_SUMMARY_CHARS, shorten } from "./advertise.js";
 import { appendAudit } from "./audit.js";
 import type { GoreloClient } from "./http.js";
 import { collectPages, DEFAULT_LIMIT, MAX_LIMIT, markUntrusted, PAGE_SIZE, renderResult } from "./shape.js";
@@ -29,7 +30,8 @@ const applyFormats: AjvFormatsPlugin =
   (addFormats as unknown as { default?: AjvFormatsPlugin }).default ??
   (addFormats as unknown as AjvFormatsPlugin);
 
-function paramsSchema(op: OperationDef): JsonSchema {
+/** The full schema ajv validates against. tools/list shows advertisedSchema() instead. */
+export function paramsSchema(op: OperationDef): JsonSchema {
   const properties: Record<string, JsonSchema> = {};
   const required: string[] = [];
   for (const p of op.params) {
@@ -59,6 +61,12 @@ function paramsSchema(op: OperationDef): JsonSchema {
     if (op.body.required) required.push("body");
   }
   return { type: "object", properties, required, additionalProperties: false };
+}
+
+/** What tools/list shows for one action: same names, types, enums and required fields, less prose. */
+export function advertisedSchema(op: OperationDef): JsonSchema {
+  const plain = op.params.filter((p) => p.in === "path").map((p) => p.name);
+  return leanSchema(paramsSchema(op), [...plain, "limit", "cursor"]);
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -156,7 +164,7 @@ export class Registry {
       .map(([name, actions]) => {
         const list = [...actions.values()].sort((a, b) => a.action.localeCompare(b.action));
         const readOnly = list.every((o) => o.method === "GET");
-        const lines = list.map((o) => `- ${o.action}: ${o.summary}`);
+        const lines = list.map((o) => `- ${o.action}: ${shorten(o.summary, MAX_SUMMARY_CHARS) ?? o.summary}`);
         const writes = name.endsWith("_write");
         const resource = name
           .replace(/^gorelo_/, "")
@@ -175,9 +183,8 @@ export class Registry {
             properties: {
               action: { type: "string", enum: list.map((o) => o.action) },
               params: {
-                description:
-                  "Parameters for the chosen action; the anyOf branch titled with the action name applies.",
-                anyOf: list.map((o) => ({ title: o.action, ...paramsSchema(o) })),
+                description: "The anyOf branch titled with the chosen action applies.",
+                anyOf: list.map((o) => ({ title: o.action, ...advertisedSchema(o) })),
               },
             },
             required: ["action"],
