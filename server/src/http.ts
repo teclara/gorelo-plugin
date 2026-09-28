@@ -35,6 +35,16 @@ function isAbort(err: unknown): boolean {
   return err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** The body's Notifications, or none when the body is not an object or they are not a list. */
+function notificationsOf(body: unknown): Notification[] {
+  const list = isRecord(body) ? body.Notifications : undefined;
+  return Array.isArray(list) ? list.filter(isRecord) : [];
+}
+
 function formatNotifications(list: Notification[]): string {
   return list
     .map((n) => [n.Code, n.Message].filter(Boolean).join(" ") + (n.ActionHint ? ` (${n.ActionHint})` : ""))
@@ -163,7 +173,7 @@ export class GoreloClient {
     let text = "";
     try {
       text = await res.text();
-      notifications = (JSON.parse(text) as { Notifications?: Notification[] }).Notifications ?? [];
+      notifications = notificationsOf(JSON.parse(text));
     } catch {
       // non-JSON error body; fall back to the raw text below
     }
@@ -194,21 +204,23 @@ export class GoreloClient {
     if (!res.ok) return this.fail(op, res);
     const text = await res.text();
     if (!text) return { data: null, hasMore: false, notifications: [] };
-    let body: {
-      IsSuccess?: boolean;
-      Data?: unknown;
-      DataContext?: { Pagination?: { NextCursor?: string | null; HasMore?: boolean } };
-      Notifications?: Notification[];
-    };
+    let parsed: unknown;
     try {
-      body = JSON.parse(text) as typeof body;
+      parsed = JSON.parse(text);
     } catch {
       throw new GoreloError(
         `Gorelo returned a non-JSON response for ${op.tool}.${op.action} (${res.status}): ${apiText(text.slice(0, 200))}`,
         res.status,
       );
     }
-    const notifications = body.Notifications ?? [];
+    // null, a primitive or an array is not an envelope: it is the data itself.
+    if (!isRecord(parsed)) return { data: parsed, hasMore: false, notifications: [] };
+    const body = parsed as {
+      IsSuccess?: boolean;
+      Data?: unknown;
+      DataContext?: { Pagination?: { NextCursor?: string | null; HasMore?: boolean } };
+    };
+    const notifications = notificationsOf(parsed);
     if (body.IsSuccess === false) {
       throw new GoreloError(
         `Gorelo reported failure for ${op.tool}.${op.action}: ${apiText(formatNotifications(notifications))}`,
