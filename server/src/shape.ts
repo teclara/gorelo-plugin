@@ -135,6 +135,14 @@ function isDownloadResult(payload: object): boolean {
  * and arrays) is wrapped. The registry's own envelope fields (note, next_cursor, path) are left
  * as written, but only at the top level: the same keys inside API data are wrapped.
  */
+/**
+ * Marks data that came from the API. Unlike markUntrusted it never treats the value as one of the
+ * server's own envelopes, so an API body shaped like one cannot get its fields passed through bare.
+ */
+export function markApiData(value: unknown): unknown {
+  return mark(value, undefined, false);
+}
+
 export function markUntrusted(value: unknown, key?: string, inherited = false): unknown {
   if (key === undefined && !inherited && value && typeof value === "object" && !Array.isArray(value)) {
     if (isDownloadResult(value)) return value;

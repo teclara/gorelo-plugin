@@ -48,9 +48,11 @@ Keep the `*_write` tools on "ask" rather than auto-allowed. These matter most:
 - `gorelo_attachments_write`: it reads a file from your disk and sends it to Gorelo.
 - `gorelo_tickets_write` and `gorelo_project_tasks_write`: public comments (`create_comments`) and side conversations or approvals (`create_conversations_*`) email people.
 
-Ticket text is written by end users and is untrusted. A prompt injection in a ticket could ask Claude to attach a local file or email someone, and the permission prompt is your chance to catch it. The server also refuses to upload hidden (dot) files, anything inside a dot-directory such as `~/.ssh`, non-regular files, and files over 25 MB.
+Ticket text is written by end users and is untrusted. A prompt injection in a ticket could ask Claude to attach a local file or email someone, and the permission prompt is your chance to catch it. The server also refuses to upload hidden (dot) files, anything inside a dot-directory such as `~/.ssh`, non-regular files, and files over 25 MB. The one exception is the plugin's own downloads folder, so a PDF it saved can be attached; hidden files and symlinks pointing elsewhere are still refused there.
 
-Every non-read call is logged locally to `~/.claude/plugins/data/<plugin-id>/audit.jsonl`.
+Every non-read call is logged locally to `~/.claude/plugins/data/<plugin-id>/audit.jsonl` with status `ok` or `error`. Calls the server refuses (an action above the configured tier, a refused upload path, or an attempt to set a server-controlled field) are logged with status `denied` and the reason. The log and the downloads folder are readable only by your user account. When the log passes 5 MB it is moved to `audit.jsonl.1`, replacing the previous one.
+
+Downloaded files are saved to `~/.claude/plugins/data/<plugin-id>/downloads/`. An existing file is never overwritten; a repeat download gets a numeric suffix such as `invoice-42-1.pdf`.
 
 ## Skills
 

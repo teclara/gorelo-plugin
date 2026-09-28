@@ -150,7 +150,7 @@ Claude Code grants permissions per tool. Keeping destructive actions out of the 
 
 **Scoped keys.** The README instructs users to create a Gorelo key scoped to match the tier, as defence in depth.
 
-**Audit log.** Every non-GET call is appended to `${CLAUDE_PLUGIN_DATA}/audit.jsonl` as `{ ts, tool, action, params, status }`, with secrets redacted. The log is local only.
+**Audit log.** Every non-GET call is appended to `${CLAUDE_PLUGIN_DATA}/audit.jsonl` as `{ ts, tool, action, params, status }` (status `ok`, `error` or `denied`, plus `error` or `reason` text), with secrets redacted. Refused calls are logged too. The log is local only.
 
 **Untrusted content.** End-user-authored fields (ticket and comment bodies, conversation messages, form responses) are wrapped in `<untrusted_content>…</untrusted_content>` in results. The server `instructions` tell Claude to treat that text as data and never follow instructions inside it.
 

@@ -5605,7 +5605,7 @@ export const OPERATIONS: OperationDef[] = [
         "properties": {
           "TypeId": {
             "type": "integer",
-            "description": "What the check does: 1 ICMP, 2 HTTP, 3 TCP. Required. Backend column `NodeCheck.CheckType`."
+            "description": "What the check does: 1 ICMP, 2 HTTP, 3 TCP. Required."
           },
           "Target": {
             "type": "object",
@@ -5651,7 +5651,7 @@ export const OPERATIONS: OperationDef[] = [
               "integer",
               "null"
             ],
-            "description": "Identifier of the client location the check belongs to. Backend column `NodeCheck.ClientLocationId`."
+            "description": "Identifier of the client location the check belongs to."
           },
           "Description": {
             "type": [
@@ -5662,14 +5662,14 @@ export const OPERATIONS: OperationDef[] = [
           },
           "Frequency": {
             "type": "integer",
-            "description": "How often the check runs, in minutes. Required. Backend column `NodeCheck.Frequency`."
+            "description": "How often the check runs, in minutes. Required."
           },
           "NumberOfRetriesAfterFailure": {
             "type": [
               "integer",
               "null"
             ],
-            "description": "How many times a failure is rechecked before the check counts as down. Backend column `NodeCheck.NumberOfRetriesAfterFailure`. Defaults to 2, matching the internal command's own default."
+            "description": "How many times a failure is rechecked before the check counts as down. Defaults to 2, matching the internal command's own default."
           },
           "RegionId": {
             "type": "integer",
@@ -5680,7 +5680,7 @@ export const OPERATIONS: OperationDef[] = [
               "string",
               "null"
             ],
-            "description": "Link to the ISP or provider status page for this endpoint. Backend column `NodeCheck.IspConnectionLink`, NVarChar(500)."
+            "description": "Link to the ISP or provider status page for this endpoint. , NVarChar(500)."
           },
           "TagIds": {
             "type": [
@@ -5839,7 +5839,7 @@ export const OPERATIONS: OperationDef[] = [
                   "string",
                   "null"
                 ],
-                "description": "When the maintenance window starts (UTC). Backend column `NodeCheckMaintenance.StartDateTime`.",
+                "description": "When the maintenance window starts (UTC).",
                 "format": "date-time"
               },
               "DurationInMinutes": {
@@ -5847,14 +5847,14 @@ export const OPERATIONS: OperationDef[] = [
                   "integer",
                   "null"
                 ],
-                "description": "How long the window lasts, in minutes. Backend column `NodeCheckMaintenance.DurationInMinutes`. Zero means the window does not expire on its own - the internal handler schedules no end message for a zero duration."
+                "description": "How long the window lasts, in minutes. Zero means the window does not expire on its own - the internal handler schedules no end message for a zero duration."
               },
               "Reason": {
                 "type": [
                   "string",
                   "null"
                 ],
-                "description": "Why the check was put into maintenance. Backend column `NodeCheckMaintenance.Reason`, NVarChar(500)."
+                "description": "Why the check was put into maintenance. , NVarChar(500)."
               }
             },
             "additionalProperties": false,

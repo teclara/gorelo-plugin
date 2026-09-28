@@ -7,7 +7,7 @@ import addFormats from "ajv-formats";
 import { leanSchema, MAX_SUMMARY_CHARS, shorten } from "./advertise.js";
 import { type AuditEntry, appendAudit, ensurePrivateDir, PRIVATE_FILE_MODE } from "./audit.js";
 import type { GoreloClient } from "./http.js";
-import { collectPages, DEFAULT_LIMIT, MAX_LIMIT, markUntrusted, PAGE_SIZE, renderResult } from "./shape.js";
+import { collectPages, DEFAULT_LIMIT, MAX_LIMIT, markApiData, PAGE_SIZE, renderResult } from "./shape.js";
 import { type JsonSchema, type OperationDef, TIER_RANK, type Tier } from "./types.js";
 
 export interface ToolDef {
@@ -53,7 +53,7 @@ export function paramsSchema(op: OperationDef): JsonSchema {
     properties.file_path = {
       type: "string",
       description:
-        "Absolute path of the local file to upload. Max 25 MB; hidden (dot) files and anything inside a dot-directory are refused.",
+        "Absolute path of the local file to upload. Max 25 MB; hidden (dot) files and anything inside a dot-directory are refused, except files this plugin downloaded.",
     };
     properties.body = { type: "object", properties: props, additionalProperties: false };
     required.push("file_path");
@@ -361,7 +361,7 @@ export class Registry {
       : "";
 
     if (execError !== undefined) return { text: execError + auditWarning, isError: true };
-    return { text: renderResult(markUntrusted(result)) + auditWarning, isError: false };
+    return { text: renderResult(result) + auditWarning, isError: false };
   }
 
   /**
@@ -393,6 +393,7 @@ export class Registry {
     return { text: reason + auditWarning, isError: true };
   }
 
+  /** Runs the operation. API data in the result is already marked untrusted; the envelope is ours. */
   private async execute(
     op: OperationDef,
     params: Record<string, unknown>,
@@ -432,7 +433,7 @@ export class Registry {
         throw new Error(`Refusing to upload ${String(file_path)}: ${overLimit(data.length)}`);
       }
       form.set("file", new Blob([data]), basename(String(file_path)));
-      return (await client.multipart(op, form)).data;
+      return markApiData((await client.multipart(op, form)).data);
     }
 
     const finalBody = op.forceBody
@@ -454,12 +455,14 @@ export class Registry {
         ...(out.hasMore && !out.nextCursor
           ? { note: "More rows exist but Gorelo returned no usable cursor; narrow with filters." }
           : {}),
-        ...(out.notifications.length ? { notifications: out.notifications } : {}),
-        items: out.items,
+        ...(out.notifications.length ? { notifications: markApiData(out.notifications) } : {}),
+        items: markApiData(out.items),
       };
     }
 
     const page = await client.json(op, rest, finalBody);
-    return page.notifications.length ? { data: page.data, notifications: page.notifications } : page.data;
+    return page.notifications.length
+      ? { data: markApiData(page.data), notifications: markApiData(page.notifications) }
+      : markApiData(page.data);
   }
 }

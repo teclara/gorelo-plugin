@@ -15,7 +15,7 @@ const DROP_KEYS = new Set([
 export function cleanDescription(text: string): string | undefined {
   const cleaned = text
     .replace(/\r/g, "")
-    .replace(/Backend column `[^`]*`\.?/g, "")
+    .replace(/Backend column\s+`[^`]*`\.?/g, "")
     .replace(/Gorelo_PublicAPI(?:\.\w+)*\.(\w+)/g, "$1")
     .replace(/\s+/g, " ")
     .trim();

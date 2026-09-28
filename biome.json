@@ -1,6 +1,6 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
-  "files": { "includes": ["**", "!server/dist", "!server/generated", "!node_modules"] },
+  "files": { "includes": ["**", "!server/dist", "!server/generated", "!node_modules", "!.claude"] },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 110 },
   "linter": {
     "rules": { "recommended": true }

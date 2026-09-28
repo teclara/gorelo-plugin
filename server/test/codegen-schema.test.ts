@@ -16,6 +16,9 @@ describe("cleanDescription", () => {
 
   it("returns undefined for empty results and caps length at 400", () => {
     expect(cleanDescription("Backend column `X.Y`.")).toBeUndefined();
+    expect(cleanDescription("Location id. Backend column\r\n`NodeCheck.ClientLocationId`.")).toBe(
+      "Location id.",
+    );
     expect(cleanDescription("a".repeat(500))?.length).toBe(400);
   });
 });
