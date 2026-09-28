@@ -5,7 +5,10 @@ export const DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 500;
 export const PAGE_SIZE = 200;
 
-/** Fields whose text is written by end users or contacts and may carry prompt injection. */
+/**
+ * Fields that are always free text written by end users or contacts. Every string is wrapped by
+ * default; these keys additionally force wrapping of everything beneath them, machine-shaped or not.
+ */
 export const UNTRUSTED_KEYS = new Set([
   "Title",
   "Subject",
@@ -73,30 +76,78 @@ export async function collectPages(
   }
 }
 
+const OPEN_TAG = "<untrusted_content>";
+const CLOSE_TAG = "</untrusted_content>";
+
+/** Wraps text that came from outside the server in <untrusted_content>. */
+export function wrapUntrusted(text: string): string {
+  // Escape any variant of the untrusted_content tag (case-insensitive, whitespace-tolerant)
+  // to prevent injected tags from escaping the wrapper.
+  return `${OPEN_TAG}${text.replace(/<(\s*\/?\s*untrusted_content)/gi, "&lt;$1")}${CLOSE_TAG}`;
+}
+
 /**
- * Wraps end-user text in <untrusted_content>. A string is wrapped when its own key is untrusted
- * or when any ancestor key is: once a value sits under an untrusted key, every string beneath it
- * (in nested objects and arrays) is wrapped.
+ * Keys that hold machine values: ids, cursors, codes, timestamps, time zones, colours, versions.
+ * External* ids are excluded because integrations and users choose them. URLs are never exempt:
+ * their path and query can carry text.
  */
-export function markUntrusted(value: unknown, key?: string, inherited = false): unknown {
+const SAFE_KEY =
+  /^(?!External)(Id|On|Code|TimeZone|Color|.*[a-z0-9](Ids?|Cursor|On|At|DateTime|Version)|next_cursor)$/;
+/** What a safe key may hold unwrapped: one short token with no spaces, quotes or angle brackets. */
+const TOKEN = /^[\w.:+/=~#-]{1,128}$/;
+/** Values that are machine-shaped under any key: a UUID, an ISO 8601 date or date-time, a number. */
+const MACHINE_VALUE = [
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:?\d{2})?)?$/,
+  /^[+-]?\d{1,30}(\.\d{1,30})?$/,
+];
+
+function isSafeString(value: string, key: string | undefined): boolean {
+  if (MACHINE_VALUE.some((re) => re.test(value))) return true;
+  return key !== undefined && SAFE_KEY.test(key) && TOKEN.test(value);
+}
+
+function mark(value: unknown, key: string | undefined, inherited: boolean): unknown {
   const untrusted = inherited || (key !== undefined && UNTRUSTED_KEYS.has(key));
   if (typeof value === "string") {
-    if (!untrusted) return value;
-    // Escape any variant of the untrusted_content tag (case-insensitive, whitespace-tolerant)
-    // to prevent injected tags from escaping the wrapper.
-    const escaped = value.replace(/<(\s*\/?\s*untrusted_content)/gi, "&lt;$1");
-    return `<untrusted_content>${escaped}</untrusted_content>`;
+    return !untrusted && isSafeString(value, key) ? value : wrapUntrusted(value);
   }
-  if (Array.isArray(value)) return value.map((v) => markUntrusted(v, key, untrusted));
+  if (Array.isArray(value)) return value.map((v) => mark(v, key, untrusted));
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, markUntrusted(v, k, untrusted)]));
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, mark(v, k, untrusted)]));
   }
   return value;
 }
 
+/** Top-level keys the registry writes itself; their text is not from the API. */
+const LIST_ENVELOPE_KEYS = new Set(["count", "has_more", "next_cursor", "note", "omitted"]);
+
+function isDownloadResult(payload: object): boolean {
+  const keys = Object.keys(payload);
+  const { path, bytes } = payload as { path?: unknown; bytes?: unknown };
+  return keys.length === 2 && typeof path === "string" && typeof bytes === "number";
+}
+
+/**
+ * Wraps text from the API in <untrusted_content>. Every string is wrapped unless it is clearly a
+ * machine value: a compact token under a known-safe key, or a UUID, ISO date or number under any
+ * key. Once a value sits under an UNTRUSTED_KEYS key, every string beneath it (in nested objects
+ * and arrays) is wrapped. The registry's own envelope fields (note, next_cursor, path) are left
+ * as written, but only at the top level: the same keys inside API data are wrapped.
+ */
+export function markUntrusted(value: unknown, key?: string, inherited = false): unknown {
+  if (key === undefined && !inherited && value && typeof value === "object" && !Array.isArray(value)) {
+    if (isDownloadResult(value)) return value;
+    if (isListResult(value)) {
+      return Object.fromEntries(
+        Object.entries(value).map(([k, v]) => [k, LIST_ENVELOPE_KEYS.has(k) ? v : mark(v, k, false)]),
+      );
+    }
+  }
+  return mark(value, key, inherited);
+}
+
 const LIST_NOTE = "Result truncated to fit; narrow with filters or page with next_cursor.";
-const OPEN_TAG = "<untrusted_content>";
-const CLOSE_TAG = "</untrusted_content>";
 
 function isListResult(payload: unknown): payload is Record<string, unknown> & { items: unknown[] } {
   return (
