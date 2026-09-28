@@ -1,3 +1,4 @@
+import { wrapUntrusted } from "./shape.js";
 import type { OperationDef } from "./types.js";
 
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -39,6 +40,11 @@ function formatNotifications(list: Notification[]): string {
     .map((n) => [n.Code, n.Message].filter(Boolean).join(" ") + (n.ActionHint ? ` (${n.ActionHint})` : ""))
     .filter(Boolean)
     .join("; ");
+}
+
+/** Text from the API goes into an error message wrapped, so the model treats it as data. */
+function apiText(text: string): string {
+  return text ? wrapUntrusted(text) : "no details";
 }
 
 export class GoreloClient {
@@ -161,7 +167,7 @@ export class GoreloClient {
         notifications,
       );
     }
-    const detail = formatNotifications(notifications) || text.slice(0, 500) || res.statusText;
+    const detail = apiText(formatNotifications(notifications) || text.slice(0, 500) || res.statusText);
     throw new GoreloError(
       `Gorelo returned ${res.status} for ${name} (${op.method} ${op.path}): ${detail}`,
       res.status,
@@ -183,14 +189,14 @@ export class GoreloClient {
       body = JSON.parse(text) as typeof body;
     } catch {
       throw new GoreloError(
-        `Gorelo returned a non-JSON response for ${op.tool}.${op.action} (${res.status}): ${text.slice(0, 200)}`,
+        `Gorelo returned a non-JSON response for ${op.tool}.${op.action} (${res.status}): ${apiText(text.slice(0, 200))}`,
         res.status,
       );
     }
     const notifications = body.Notifications ?? [];
     if (body.IsSuccess === false) {
       throw new GoreloError(
-        `Gorelo reported failure for ${op.tool}.${op.action}: ${formatNotifications(notifications) || "no details"}`,
+        `Gorelo reported failure for ${op.tool}.${op.action}: ${apiText(formatNotifications(notifications))}`,
         res.status,
         notifications,
       );
