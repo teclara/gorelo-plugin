@@ -5,7 +5,7 @@ description: Put Gorelo uptime checks into or out of maintenance mode for a time
 
 # Uptime maintenance
 
-1. **Find checks.** Call `gorelo_uptime.list`, then narrow to the client, site or description the user named. Show the matches and confirm which ones are meant.
+1. **Find checks.** Call `gorelo_uptime.list`. Narrow it with `ClientIds` (resolve the client first with `gorelo_clients.list` and `Query`) or with `Query`, which matches the check description. Show the matches and confirm which ones are meant.
 2. **Work out the window.** Build `MaintenanceMode` from the user's request:
    - `Enabled: true`
    - `StartDateTime` in UTC, converted from the user's local time. State the conversion you used.

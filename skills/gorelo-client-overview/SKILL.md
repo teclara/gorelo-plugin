@@ -7,13 +7,13 @@ description: One-page briefing on a single Gorelo client — contacts, sites, de
 
 1. **Find the client.** Call `gorelo_clients.list` with `Query` set to the name the user gave. If there are several matches, ask which one. Keep the `Id`.
 2. **Gather the rest** in parallel where possible, filtering each call by that client:
-   - `gorelo_clients.get`
-   - `gorelo_clients.list_locations`
+   - `gorelo_clients.get` with `id`
+   - `gorelo_clients.list_locations` with `clientId`
    - `gorelo_contacts.list` with `ClientIds`
    - `gorelo_assets.list_agents` and `gorelo_assets.list_custom` with `ClientIds`
-   - `gorelo_tickets.list` with `ClientIds` and the open status IDs (look these up with `gorelo_tickets.list_statuses`)
-   - `gorelo_contracts.list`, filtered to this client. For each active contract, call `gorelo_contracts.get` to get the service lines.
-   - `gorelo_uptime.list`, keeping only this client's checks
+   - `gorelo_tickets.list` with `ClientIds` and the open status IDs as `StatusIds` (look these up with `gorelo_tickets.list_statuses`)
+   - `gorelo_contracts.list` with `ClientIds`. For each active contract, call `gorelo_contracts.get` with `contractId` to get the service lines.
+   - `gorelo_uptime.list` with `ClientIds`
    - `gorelo_time_entries.list` with `ClientIds` and `StartedSince` set to 30 days ago
 3. **Write the briefing** in this order:
    - A header with the client name, primary contact and sites
