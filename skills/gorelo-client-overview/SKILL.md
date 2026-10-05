@@ -7,7 +7,7 @@ description: One-page briefing on a single Gorelo client — contacts, sites, de
 
 1. **Find the client.** Call `gorelo_clients.list` with `Query` set to the name the user gave. If there are several matches, ask which one. Keep the `Id`.
 2. **Gather the rest** in parallel where possible, filtering each call by that client:
-   - `gorelo_clients.get` with `id`
+   - `gorelo_clients.get` with `clientId`
    - `gorelo_clients.list_locations` with `clientId`
    - `gorelo_contacts.list` with `ClientIds`
    - `gorelo_assets.list_agents` and `gorelo_assets.list_custom` with `ClientIds`

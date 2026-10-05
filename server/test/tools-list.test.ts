@@ -19,10 +19,11 @@ const CLIENT_TEXT_LIMIT = 2048;
 
 /**
  * Upper bounds on JSON.stringify({tools}) per tier, roughly 10% above the measured size
- * (read 26.2k, write 65.2k, full 77.0k chars). Before the lean schema these were 38.7k, 92.5k
- * and 108.0k. Raise a bound only after looking at what grew.
+ * (read 27.8k, write 73.6k, full 86.4k chars). Before the lean schema these were 38.7k, 92.5k
+ * and 108.0k. Raise a bound only after looking at what grew. 2026-10-05 spec: +8.3k write, mostly
+ * longer field descriptions on project and project-task writes, plus the new gorelo_alerts.list.
  */
-const MAX_TOOLS_LIST_CHARS: Record<Tier, number> = { read: 29_000, write: 72_000, full: 85_000 };
+const MAX_TOOLS_LIST_CHARS: Record<Tier, number> = { read: 31_000, write: 81_000, full: 95_000 };
 
 /** A schema with the parts the advertised copy is allowed to leave out removed. */
 function shape(schema: unknown): unknown {

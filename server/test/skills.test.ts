@@ -33,7 +33,7 @@ const PARAMS_USED: Record<string, Record<string, string[]>> = {
   },
   "gorelo-client-overview": {
     "gorelo_clients.list": ["Query"],
-    "gorelo_clients.get": ["id"],
+    "gorelo_clients.get": ["clientId"],
     "gorelo_clients.list_locations": ["clientId"],
     "gorelo_contacts.list": ["ClientIds"],
     "gorelo_assets.list_agents": ["ClientIds"],
@@ -64,9 +64,9 @@ const PARAMS_USED: Record<string, Record<string, string[]>> = {
   "gorelo-uptime-maintenance": {
     "gorelo_clients.list": ["Query"],
     "gorelo_uptime.list": ["ClientIds", "Query"],
-    "gorelo_uptime.get": ["id"],
+    "gorelo_uptime.get": ["checkId"],
     "gorelo_uptime_write.update": [
-      "id",
+      "checkId",
       "MaintenanceMode",
       "Enabled",
       "StartDateTime",
@@ -121,11 +121,11 @@ const ID_TYPES: Record<string, Record<string, string>> = {
   "gorelo_tickets_write.update": { ticketId: "uuid" },
   "gorelo_tickets_write.create_comments": { ticketId: "uuid" },
   "gorelo_project_tasks.list": { projectId: "uuid" },
-  "gorelo_clients.get": { id: "integer" },
+  "gorelo_clients.get": { clientId: "integer" },
   "gorelo_clients.list_locations": { clientId: "integer" },
   "gorelo_contracts.get": { contractId: "integer" },
-  "gorelo_uptime.get": { id: "uuid" },
-  "gorelo_uptime_write.update": { id: "uuid" },
+  "gorelo_uptime.get": { checkId: "uuid" },
+  "gorelo_uptime_write.update": { checkId: "uuid" },
   "gorelo_invoices.pdf": { invoiceId: "uuid" },
 };
 
