@@ -16964,13 +16964,13 @@ var package_default = {
 var SPEC_VERSION = "1.0.0";
 var OPERATIONS = [
   {
-    "operationId": "delete_v1_assets_agents_id",
+    "operationId": "delete_v1_assets_agents_deviceId",
     "method": "DELETE",
-    "path": "/v1/assets/agents/{id}",
+    "path": "/v1/assets/agents/{deviceId}",
     "summary": "Deletes an agent (managed device) asset.",
     "params": [
       {
-        "name": "id",
+        "name": "deviceId",
         "in": "path",
         "required": true,
         "schema": {
@@ -16987,13 +16987,13 @@ var OPERATIONS = [
     "tier": "full"
   },
   {
-    "operationId": "delete_v1_assets_custom_id",
+    "operationId": "delete_v1_assets_custom_customAssetId",
     "method": "DELETE",
-    "path": "/v1/assets/custom/{id}",
+    "path": "/v1/assets/custom/{customAssetId}",
     "summary": "Deletes a custom asset.",
     "params": [
       {
-        "name": "id",
+        "name": "customAssetId",
         "in": "path",
         "required": true,
         "schema": {
@@ -17010,13 +17010,13 @@ var OPERATIONS = [
     "tier": "full"
   },
   {
-    "operationId": "delete_v1_clients_id",
+    "operationId": "delete_v1_clients_clientId",
     "method": "DELETE",
-    "path": "/v1/clients/{id}",
+    "path": "/v1/clients/{clientId}",
     "summary": "Deletes a client.",
     "params": [
       {
-        "name": "id",
+        "name": "clientId",
         "in": "path",
         "required": true,
         "schema": {
@@ -17032,13 +17032,13 @@ var OPERATIONS = [
     "tier": "full"
   },
   {
-    "operationId": "delete_v1_contacts_id",
+    "operationId": "delete_v1_contacts_contactId",
     "method": "DELETE",
-    "path": "/v1/contacts/{id}",
+    "path": "/v1/contacts/{contactId}",
     "summary": "Deletes a contact.",
     "params": [
       {
-        "name": "id",
+        "name": "contactId",
         "in": "path",
         "required": true,
         "schema": {
@@ -17101,7 +17101,7 @@ var OPERATIONS = [
               "integer",
               "null"
             ],
-            "description": "Status to create the invoice in: 1 = Draft (default) or 5 = Approved. Any other value is rejected. Approving on create pushes the invoice to the connected accounting system through the same channel the internal create path uses. An Approved invoice whose computed total is exactly 0 is recorded as Paid instead."
+            "description": "Status to create the invoice in: 1 = Draft (default) or 5 = Approved. Any other value is rejected. Approving on create pushes the invoice to the connected accounting system, the same as approving it in the app. An Approved invoice whose computed total is exactly 0 is recorded as Paid instead."
           },
           "InvoiceDate": {
             "type": [
@@ -17202,7 +17202,7 @@ var OPERATIONS = [
               },
               "additionalProperties": false
             },
-            "description": "Line items for this invoice. At least one is required. Deliberately narrower than the internal invoice-item shape: no task/ticket/time-entry linkage and no bundle sub-items - those belong to contract-generated invoices, out of scope for a manual one."
+            "description": "Line items for this invoice. At least one is required. Lines carry no task/ticket/time-entry linkage - that belongs to contract-generated invoices, out of scope for a manual one. A line whose ItemId is a bundle is billed as one line and stored as the bundle's parts, the same way the app stores it; the caller never sends the parts."
           }
         },
         "additionalProperties": false,
@@ -17340,7 +17340,7 @@ var OPERATIONS = [
               "number",
               "null"
             ],
-            "description": "Unit price charged to the client."
+            "description": "Unit price charged to the client. May be negative, for a discount or credit line."
           },
           "TaxId": {
             "type": [
@@ -17546,7 +17546,7 @@ var OPERATIONS = [
               "number",
               "null"
             ],
-            "description": "Not clearable. Omit or send null to leave unchanged; a supplied negative value is a 400."
+            "description": "Not clearable. Omit or send null to leave unchanged. May be negative, for a discount or credit line."
           },
           "TaxId": {
             "type": [
@@ -17831,13 +17831,13 @@ var OPERATIONS = [
     "tier": "full"
   },
   {
-    "operationId": "delete_v1_time-entries_id",
+    "operationId": "delete_v1_time-entries_timeEntryId",
     "method": "DELETE",
-    "path": "/v1/time-entries/{id}",
+    "path": "/v1/time-entries/{timeEntryId}",
     "summary": "Deletes a time entry.",
     "params": [
       {
-        "name": "id",
+        "name": "timeEntryId",
         "in": "path",
         "required": true,
         "schema": {
@@ -17853,13 +17853,13 @@ var OPERATIONS = [
     "tier": "full"
   },
   {
-    "operationId": "delete_v1_uptime_id",
+    "operationId": "delete_v1_uptime_checkId",
     "method": "DELETE",
-    "path": "/v1/uptime/{id}",
+    "path": "/v1/uptime/{checkId}",
     "summary": "Deletes an uptime check.",
     "params": [
       {
-        "name": "id",
+        "name": "checkId",
         "in": "path",
         "required": true,
         "schema": {
@@ -17874,6 +17874,85 @@ var OPERATIONS = [
     "tool": "gorelo_admin",
     "action": "uptime_delete",
     "tier": "full"
+  },
+  {
+    "operationId": "get_v1_alerts",
+    "method": "GET",
+    "path": "/v1/alerts",
+    "summary": "Lists alerts for the authenticated service provider.",
+    "params": [
+      {
+        "name": "SortOrder",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "default": "desc"
+        },
+        "description": "`desc` (default, newest first) or `asc`. Sorted by `CreatedOn`."
+      },
+      {
+        "name": "StatusIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated status ids: New=1, Ignored=2, Ticketed=3. 0 (Unknown) matches any other status."
+      },
+      {
+        "name": "TypeIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated type ids: Uptime=1, API=2, Script=3, External=4, Slide=5, Huntress=6, Error Event Log=7, Disk Usage=8, Connectivity=9, Process=10, Service=11, Antivirus=12, Redfish=13, CPU=14, Memory=15, Ping=16, Windows Updates=17, Warranty Expiration=18, Domain Expiration=19, Contract Expiration=20. 7-17 are device-check alerts, identified by their check type rather than by how the alert was rai"
+      },
+      {
+        "name": "ClientIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated client ids. An alert type that carries no client id never matches this filter."
+      },
+      {
+        "name": "DeviceIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated device ids (guids)."
+      },
+      {
+        "name": "CreatedSince",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "Keeps only alerts raised at or after this instant (UTC)."
+      },
+      {
+        "name": "CreatedBefore",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "Keeps only alerts raised strictly before this instant (UTC)."
+      }
+    ],
+    "response": "json",
+    "paginated": true,
+    "tool": "gorelo_alerts",
+    "action": "list",
+    "tier": "read"
   },
   {
     "operationId": "post_v1_alerts",
@@ -17918,7 +17997,8 @@ var OPERATIONS = [
               3,
               4
             ],
-            "type": "integer"
+            "type": "integer",
+            "description": "How severe an alert is: `1` Critical, `2` Error, `3` Warning, `4` Information."
           },
           "Description": {
             "type": "string",
@@ -17931,13 +18011,83 @@ var OPERATIONS = [
     }
   },
   {
-    "operationId": "get_v1_assets_agents_id",
+    "operationId": "post_v1_api-keys",
+    "method": "POST",
+    "path": "/v1/api-keys",
+    "summary": "Creates an API key for the authenticated service provider.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_api_keys_write",
+    "action": "create",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string",
+            "description": "A name to identify the key by. Required."
+          },
+          "Description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the key is for."
+          },
+          "Scopes": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "ServiceProvider:read",
+                "ServiceProvider:write",
+                "ServiceProvider:delete",
+                "Tickets:read",
+                "Tickets:write",
+                "Tickets:delete",
+                "Clients:read",
+                "Clients:write",
+                "Clients:delete",
+                "Contacts:read",
+                "Contacts:write",
+                "Contacts:delete",
+                "Billing:read",
+                "Billing:write",
+                "Billing:delete",
+                "Project:read",
+                "Project:write",
+                "Project:delete",
+                "Assets:read",
+                "Assets:write",
+                "Assets:delete",
+                "Alerts:read",
+                "Alerts:write",
+                "Alerts:delete",
+                "Forms:read",
+                "Forms:write",
+                "Forms:delete"
+              ],
+              "type": "string"
+            },
+            "description": 'The scopes the new key carries, each an explicit `"Module:verb"`. Required, and every entry must be one the calling key already holds. The valid values are published as the enum on this property. Verbs are independent - `write` does not imply `read`. Note `Project` is singular, and the key management screen shows `ServiceProvider` under the name <b>Organization</b>.'
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for creating an API key. The owning service provider and the calling key's own scopes are resolved from the request context, not from the body."
+      }
+    }
+  },
+  {
+    "operationId": "get_v1_assets_agents_deviceId",
     "method": "GET",
-    "path": "/v1/assets/agents/{id}",
+    "path": "/v1/assets/agents/{deviceId}",
     "summary": "Gets a single agent (managed device) asset by id.",
     "params": [
       {
-        "name": "id",
+        "name": "deviceId",
         "in": "path",
         "required": true,
         "schema": {
@@ -18184,13 +18334,13 @@ var OPERATIONS = [
     "tier": "read"
   },
   {
-    "operationId": "get_v1_clients_id",
+    "operationId": "get_v1_clients_clientId",
     "method": "GET",
-    "path": "/v1/clients/{id}",
+    "path": "/v1/clients/{clientId}",
     "summary": "Gets a single client by id.",
     "params": [
       {
-        "name": "id",
+        "name": "clientId",
         "in": "path",
         "required": true,
         "schema": {
@@ -18218,7 +18368,7 @@ var OPERATIONS = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated client status ids to include. Inactive clients are excluded either way."
+        "description": "Comma-separated client status ids to include; when omitted, inactive (2) clients are excluded, and when supplied only the listed statuses are returned."
       },
       {
         "name": "Query",
@@ -18437,11 +18587,21 @@ var OPERATIONS = [
     }
   },
   {
-    "operationId": "patch_v1_clients",
+    "operationId": "patch_v1_clients_clientId",
     "method": "PATCH",
-    "path": "/v1/clients",
+    "path": "/v1/clients/{clientId}",
     "summary": "Updates an existing client. Only supplied (non-null) fields are changed.",
-    "params": [],
+    "params": [
+      {
+        "name": "clientId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Client to update."
+      }
+    ],
     "response": "json",
     "paginated": false,
     "tool": "gorelo_clients_write",
@@ -18451,15 +18611,8 @@ var OPERATIONS = [
       "contentType": "application/json",
       "required": false,
       "schema": {
-        "required": [
-          "Id"
-        ],
         "type": "object",
         "properties": {
-          "Id": {
-            "type": "integer",
-            "description": "Identifier of the client to update. Required."
-          },
           "Name": {
             "type": [
               "string",
@@ -18490,18 +18643,18 @@ var OPERATIONS = [
           }
         },
         "additionalProperties": false,
-        "description": "Request body for updating a client. Only the supplied (non-null) fields are changed; Id identifies the client to update."
+        "description": "Request body for updating a client. Only the supplied (non-null) fields are changed; `Id`, bound from the route, identifies the client to update."
       }
     }
   },
   {
-    "operationId": "get_v1_contacts_id",
+    "operationId": "get_v1_contacts_contactId",
     "method": "GET",
-    "path": "/v1/contacts/{id}",
+    "path": "/v1/contacts/{contactId}",
     "summary": "Gets a single contact by id.",
     "params": [
       {
-        "name": "id",
+        "name": "contactId",
         "in": "path",
         "required": true,
         "schema": {
@@ -18703,11 +18856,21 @@ var OPERATIONS = [
     }
   },
   {
-    "operationId": "patch_v1_contacts",
+    "operationId": "patch_v1_contacts_contactId",
     "method": "PATCH",
-    "path": "/v1/contacts",
-    "summary": "Updates an existing contact. `ContactId` identifies the contact.",
-    "params": [],
+    "path": "/v1/contacts/{contactId}",
+    "summary": "Updates an existing contact.",
+    "params": [
+      {
+        "name": "contactId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Contact to update."
+      }
+    ],
     "response": "json",
     "paginated": false,
     "tool": "gorelo_contacts_write",
@@ -18719,17 +18882,12 @@ var OPERATIONS = [
       "schema": {
         "required": [
           "ClientId",
-          "ContactId",
           "FirstName",
           "LastName",
           "PrimaryEmail"
         ],
         "type": "object",
         "properties": {
-          "ContactId": {
-            "type": "integer",
-            "description": "Identifier of the contact to update. Required."
-          },
           "FirstName": {
             "minLength": 1,
             "type": "string",
@@ -18800,7 +18958,7 @@ var OPERATIONS = [
           }
         },
         "additionalProperties": false,
-        "description": "Request body for updating an existing contact. ContactId identifies the contact."
+        "description": "Request body for updating an existing contact. `ContactId`, bound from the route, identifies the contact."
       }
     }
   },
@@ -18981,7 +19139,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Ticket the submission is filed against. Optional; not with TaskId. Must be an active ticket of the authenticated service provider.",
+            "description": "Ticket the submission is filed against. Optional; not with `TaskId`. Must be an active ticket of the authenticated service provider.",
             "format": "uuid"
           },
           "TaskId": {
@@ -18989,7 +19147,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Task the submission is filed against. Optional; not with TicketId. Must be an active task, in an active project, of the authenticated service provider.",
+            "description": "Task the submission is filed against. Optional; not with `TicketId`. Must be an active task, in an active project, of the authenticated service provider.",
             "format": "uuid"
           }
         },
@@ -18997,6 +19155,29 @@ var OPERATIONS = [
         "description": "Request body for issuing a submission link. The form is named in the path and the owning service provider is resolved from the request context, not from the body."
       }
     }
+  },
+  {
+    "operationId": "get_v1_invoices_invoiceId",
+    "method": "GET",
+    "path": "/v1/invoices/{invoiceId}",
+    "summary": "Gets one invoice, with its attachments and line items.",
+    "params": [
+      {
+        "name": "invoiceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Invoice identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_invoices",
+    "action": "get",
+    "tier": "read"
   },
   {
     "operationId": "get_v1_invoices",
@@ -19146,7 +19327,7 @@ var OPERATIONS = [
           "type": "string",
           "default": "createdOn"
         },
-        "description": "Sort column: createdOn (default), updatedOn, date, dueDate or totalAmount."
+        "description": "Sort field: createdOn (default), updatedOn, date, dueDate or totalAmount."
       },
       {
         "name": "SortOrder",
@@ -19308,7 +19489,7 @@ var OPERATIONS = [
               },
               "additionalProperties": false
             },
-            "description": "Line items for this invoice. At least one is required. Deliberately narrower than the internal invoice-item shape: no task/ticket/time-entry linkage and no bundle sub-items - those belong to contract-generated invoices, out of scope for a manual one."
+            "description": "Line items for this invoice. At least one is required. Lines carry no task/ticket/time-entry linkage - that belongs to contract-generated invoices, out of scope for a manual one. A line whose ItemId is a bundle is billed as one line and stored as the bundle's parts, the same way the app stores it; the caller never sends the parts."
           }
         },
         "additionalProperties": false,
@@ -19643,7 +19824,7 @@ var OPERATIONS = [
           "type": "string",
           "default": "boardOrder"
         },
-        "description": "Sort column: `boardOrder` (default), `createdOn` or `updatedOn`."
+        "description": "Sort field: `boardOrder` (default), `createdOn` or `updatedOn`."
       },
       {
         "name": "SortOrder",
@@ -19762,7 +19943,7 @@ var OPERATIONS = [
           "type": "string",
           "default": "createdOn"
         },
-        "description": "Sort column: `createdOn`."
+        "description": "Sort field: `createdOn`."
       },
       {
         "name": "SortOrder",
@@ -19859,23 +20040,27 @@ var OPERATIONS = [
       "required": false,
       "schema": {
         "required": [
+          "SectionId",
           "Title"
         ],
         "type": "object",
         "properties": {
           "SectionId": {
             "type": "string",
+            "description": "Identifier of the section the task belongs to. Required.",
             "format": "uuid"
           },
           "Title": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "Task title. Required."
           },
           "LeadAssigneeId": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "Identifier of the technician leading the task. Optional."
           },
           "AssistingAssigneeIds": {
             "type": [
@@ -19884,7 +20069,8 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Identifiers of technicians assisting on the task."
           },
           "WatcherIds": {
             "type": [
@@ -19893,32 +20079,38 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Identifiers of technicians watching the task."
           },
           "PriorityId": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Task priority: None=0, Urgent=1, High=2, Normal=3, Low=4 - the same scale a ticket uses. Defaults to Normal, which is what the app assigns a task created without one."
           },
           "StatusId": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Task status: NotStarted=1, WorkingOnIt=2, OnHold=3, Done=4. Defaults to NotStarted."
           },
           "DueDate": {
             "type": [
               "string",
               "null"
             ],
+            "description": "When the task is due. UTC.",
             "format": "date-time"
           },
           "CreatedByName": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Display name to record as the task creator. An API key is not a person, so when it is omitted or blank the creator is recorded as `API`."
           },
           "CreatedOn": {
             "type": [
               "string",
               "null"
             ],
+            "description": "When the task was created. UTC. Defaults to now - supply it only when importing a task that already existed elsewhere.",
             "format": "date-time"
           },
           "UpdatedOn": {
@@ -19926,10 +20118,12 @@ var OPERATIONS = [
               "string",
               "null"
             ],
+            "description": "When the task was last updated. UTC. Defaults to `CreatedOn`.",
             "format": "date-time"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for creating a task inside a project section. The owning service provider is resolved from the request context, not from the body."
       }
     }
   },
@@ -19975,23 +20169,27 @@ var OPERATIONS = [
         "type": "object",
         "properties": {
           "ConversationTypeId": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Kind of conversation: `1` Public, `2` Private, `3` Side Conversation, `4` Approval. **Defaults to 2 (Private)** - a comment posted by an integration is an internal note unless it says otherwise."
           },
           "ConversationId": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Identifier of the conversation to post into, from the task's conversations endpoint. Required for Side Conversation and Approval, and rejected for Public and Private, which are the task's main thread."
           },
           "Body": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "The comment body, as HTML. Required."
           },
           "BodyText": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The same body as markdown, if you keep one."
           },
           "Attachments": {
             "type": [
@@ -20002,30 +20200,37 @@ var OPERATIONS = [
               "type": "object",
               "properties": {
                 "Name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "File name as it should appear."
                 },
                 "Url": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "The url the upload returned. Any access token on it is stripped before storage."
                 }
               },
-              "additionalProperties": false
-            }
+              "additionalProperties": false,
+              "description": "A file to attach to a comment."
+            },
+            "description": "Files to attach. Upload them first, then send the returned name and url."
           },
           "CreatedByName": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Display name to record as the author. Omitted or blank, it is recorded as `API`."
           },
           "CreatedOn": {
             "type": [
               "string",
               "null"
             ],
+            "description": "When the comment was written. UTC. Defaults to now.",
             "format": "date-time"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for posting a comment on a task."
       }
     }
   },
@@ -20072,16 +20277,19 @@ var OPERATIONS = [
         "properties": {
           "Name": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "What is being approved. Required."
           },
           "ContactIds": {
             "type": "array",
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Contacts asked to approve. Required. Each must be an active contact of the task's client and carry a contact tag marked as an approver."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for asking contacts to approve something on a task."
       }
     }
   },
@@ -20129,11 +20337,13 @@ var OPERATIONS = [
         "properties": {
           "Name": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "Display name of the person the conversation is with. Required."
           },
           "Email": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "Their email address. Required."
           },
           "CcEmails": {
             "type": [
@@ -20142,10 +20352,12 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Addresses to copy on the conversation."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for starting a side conversation on a task - a thread with somebody outside the task's own contacts, such as a vendor."
       }
     }
   },
@@ -20191,51 +20403,59 @@ var OPERATIONS = [
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "New task title."
           },
           "SectionId": {
             "type": [
               "string",
               "null"
             ],
+            "description": "Section to move the task to. Must be an active section of the same project.",
             "format": "uuid"
           },
           "StatusId": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "New status: NotStarted=1, WorkingOnIt=2, OnHold=3, Done=4."
           },
           "StatusReason": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Free-text reason recorded with the status. Only read when `StatusId` is sent."
           },
           "PriorityId": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "New priority: None=0, Urgent=1, High=2, Normal=3, Low=4 - the ticket scale."
           },
           "DueDate": {
             "type": [
               "string",
               "null"
             ],
+            "description": "New due date (UTC). Send null to leave it alone; to clear it, send `ClearDueDate`.",
             "format": "date-time"
           },
           "ClearDueDate": {
             "type": [
               "boolean",
               "null"
-            ]
+            ],
+            "description": "Set true to remove the due date. A task's due date is otherwise never cleared by omission."
           },
           "LeadAssigneeId": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "New lead assignee. Send 0 to remove the lead."
           },
           "AssistingAssigneeIds": {
             "type": [
@@ -20244,7 +20464,8 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Replaces the assisting assignees outright. Send an empty array to remove them all."
           },
           "WatcherIds": {
             "type": [
@@ -20253,7 +20474,8 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Replaces the watchers outright. Send an empty array to remove them all."
           },
           "BlockedByTaskIds": {
             "type": [
@@ -20263,7 +20485,8 @@ var OPERATIONS = [
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Replaces the tasks that must finish before this one can."
           },
           "BlockingTaskIds": {
             "type": [
@@ -20273,7 +20496,8 @@ var OPERATIONS = [
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Replaces the tasks this one is blocking."
           },
           "AgentAssetIds": {
             "type": [
@@ -20283,7 +20507,8 @@ var OPERATIONS = [
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Replaces the linked agent-managed assets."
           },
           "CustomAssetIds": {
             "type": [
@@ -20293,7 +20518,8 @@ var OPERATIONS = [
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Replaces the linked custom assets."
           },
           "UptimeIds": {
             "type": [
@@ -20303,22 +20529,26 @@ var OPERATIONS = [
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Replaces the linked uptime checks."
           },
           "Banner": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "New banner text. Send an empty string to remove it."
           },
           "UpdatedByName": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Display name to record as the actor. An API key is not a person, so when it is omitted or blank the actor is recorded as `API`."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for updating a task. Every field is optional - send only what you want to change. An omitted field leaves the stored value alone; sending nothing at all is a 400 rather than a no-op write."
       }
     }
   },
@@ -20392,7 +20622,7 @@ var OPERATIONS = [
           "type": "string",
           "default": "updatedOn"
         },
-        "description": "Sort column: `updatedOn` (default) or `createdOn`."
+        "description": "Sort field: `updatedOn` (default) or `createdOn`."
       },
       {
         "name": "SortOrder",
@@ -20508,24 +20738,24 @@ var OPERATIONS = [
         "description": "Keeps only projects created strictly before this instant (UTC)."
       },
       {
-        "name": "DueAfter",
+        "name": "TargetDateAfter",
         "in": "query",
         "required": false,
         "schema": {
           "type": "string",
           "format": "date-time"
         },
-        "description": "Keeps only projects with a due date at or after this instant (UTC). A project with no due date matches neither bound."
+        "description": "Keeps only projects with a target date at or after this instant (UTC). A project with no target date matches neither bound."
       },
       {
-        "name": "DueBefore",
+        "name": "TargetDateBefore",
         "in": "query",
         "required": false,
         "schema": {
           "type": "string",
           "format": "date-time"
         },
-        "description": "Keeps only projects with a due date strictly before this instant (UTC)."
+        "description": "Keeps only projects with a target date strictly before this instant (UTC)."
       }
     ],
     "response": "json",
@@ -20630,34 +20860,44 @@ var OPERATIONS = [
       "required": false,
       "schema": {
         "required": [
-          "Title"
+          "ClientId",
+          "GroupId",
+          "LocationId",
+          "Title",
+          "TypeId"
         ],
         "type": "object",
         "properties": {
           "Title": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "Project title. Required."
           },
           "Description": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Project description."
           },
           "ClientId": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Identifier of the client the project belongs to. Required."
           },
           "LocationId": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Identifier of the client location the project belongs to. Required."
           },
           "LeadAssigneeId": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "Identifier of the technician to lead the project. Optional - a project created without one has no lead, and none is assigned by default."
           },
           "TypeId": {
             "type": "string",
+            "description": "Identifier of the project type. Required.",
             "format": "uuid"
           },
           "TagIds": {
@@ -20668,19 +20908,12 @@ var OPERATIONS = [
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Identifiers of tags to apply to the project."
           },
           "GroupId": {
-            "type": "integer"
-          },
-          "GroupIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "integer"
-            }
+            "type": "integer",
+            "description": "Identifier of the technician group the project is assigned to. Required."
           },
           "WatcherIds": {
             "type": [
@@ -20689,7 +20922,8 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Identifiers of technicians to watch the project. The lead is never also a watcher."
           },
           "SharedWithContactIds": {
             "type": [
@@ -20698,26 +20932,30 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Identifiers of contacts to share the project with. They must belong to `ClientId`."
           },
-          "DueDate": {
+          "TargetDate": {
             "type": [
               "string",
               "null"
             ],
+            "description": "Date the project is targeted to finish (UTC).",
             "format": "date-time"
           },
           "CreatedByName": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Display name to record as the project creator. An API key is not a person, so when it is omitted or blank the creator is recorded as `API`."
           },
           "CreatedOn": {
             "type": [
               "string",
               "null"
             ],
+            "description": "Backdate the project's creation timestamp - for importing projects from another system. Must not be in the future. Omit to use the current time.",
             "format": "date-time"
           },
           "UpdatedOn": {
@@ -20725,10 +20963,12 @@ var OPERATIONS = [
               "string",
               "null"
             ],
+            "description": "Backdate the project's last-activity timestamp so an imported project does not sort above live work. Must not be in the future or earlier than `CreatedOn`. Defaults to the effective creation time.",
             "format": "date-time"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for creating a project. The owning service provider is resolved from the request context, not from the body."
       }
     }
   },
@@ -20765,22 +21005,26 @@ var OPERATIONS = [
         "properties": {
           "Body": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "The comment body, as HTML. Required."
           },
           "BodyText": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The same body as markdown, if you keep one."
           },
           "ConversationTypeId": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Kind of conversation: `1` Public or `2` Private. **Defaults to 2 (Private)** - a project comment posted by an integration is an internal note unless it says otherwise. A project has no side conversations or approvals of its own, so `3` and `4` are rejected rather than silently written as something else."
           },
           "ConversationId": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Identifier of the conversation to post into. A project's comments are all on its one main thread, so there is no conversation to name and sending one is a 400."
           },
           "Attachments": {
             "type": [
@@ -20791,30 +21035,37 @@ var OPERATIONS = [
               "type": "object",
               "properties": {
                 "Name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "File name as it should appear."
                 },
                 "Url": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "The url the upload returned. Any access token on it is stripped before storage."
                 }
               },
-              "additionalProperties": false
-            }
+              "additionalProperties": false,
+              "description": "A file to attach to a comment."
+            },
+            "description": "Files to attach. Upload them first, then send the returned name and url."
           },
           "CreatedByName": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Display name to record as the author. An API key is not a person, so when it is omitted or blank the author is recorded as `API`."
           },
           "CreatedOn": {
             "type": [
               "string",
               "null"
             ],
+            "description": "When the comment was written. UTC. Defaults to now - supply it only when importing a comment that already existed elsewhere.",
             "format": "date-time"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for posting a comment on a project."
       }
     }
   },
@@ -20851,22 +21102,26 @@ var OPERATIONS = [
         "properties": {
           "Title": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "Section title. Required."
           },
           "Color": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Colour the section is displayed in, as a hex code. Optional - omit it and the section gets `#56A0F9`. A supplied blank is rejected: a section always has a colour."
           },
           "CreatedByName": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Display name to record as the author of this change. An API key is not a person, so when it is omitted or blank the author is recorded as `API`."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for adding a section to a project."
       }
     }
   },
@@ -20902,25 +21157,29 @@ var OPERATIONS = [
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "New project title."
           },
           "Description": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "New description. Send an empty string to remove it."
           },
           "ClientId": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "Move the project to a different client. **Clears the shared contacts**, because a contact belongs to the client it came from - the app does the same. Send `LocationId` with it: a location belongs to a client."
           },
           "LocationId": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "New client location."
           },
           "SharedWithContactIds": {
             "type": [
@@ -20929,13 +21188,15 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Replaces the contacts the project is shared with. Empty array clears them."
           },
           "TypeId": {
             "type": [
               "string",
               "null"
             ],
+            "description": "New project type.",
             "format": "uuid"
           },
           "TagIds": {
@@ -20946,13 +21207,15 @@ var OPERATIONS = [
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Replaces the tags. Empty array clears them."
           },
           "LeadAssigneeId": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "New lead assignee. Send 0 to remove the lead."
           },
           "WatcherIds": {
             "type": [
@@ -20961,7 +21224,8 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Replaces the watchers. Empty array clears them."
           },
           "GroupIds": {
             "type": [
@@ -20970,48 +21234,56 @@ var OPERATIONS = [
             ],
             "items": {
               "type": "integer"
-            }
+            },
+            "description": "Replaces the technician groups the project belongs to."
           },
-          "DueDate": {
+          "TargetDate": {
             "type": [
               "string",
               "null"
             ],
+            "description": "New target date (UTC). To remove it, send `ClearTargetDate`.",
             "format": "date-time"
           },
-          "ClearDueDate": {
+          "ClearTargetDate": {
             "type": [
               "boolean",
               "null"
-            ]
+            ],
+            "description": "Set true to remove the due date."
           },
           "StatusId": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "New status: Not Started=1, In Progress=2, On Hold=3, Completed=4, Closed=5. Completed is normally reached automatically once every task is Done; Closed is the manual end state and stamps `ClosedOn`. Moving a Closed project to any other status clears it."
           },
           "StatusReason": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Free-text reason recorded with the status. Only read when `StatusId` is sent."
           },
           "ClosedOn": {
             "type": [
               "string",
               "null"
             ],
+            "description": "The date the project was closed (UTC), for recording the real close date of a project migrated from another system. The project must already be Closed, or be moved into that status by this same request. Must not be in the future or earlier than the project's `CreatedOn`. A supplied date also becomes the project's `UpdatedOn`. Omit it to leave the date untouched - closing a project normally stamps ",
             "format": "date-time"
           },
           "UpdatedByName": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Display name to record as the actor. An API key is not a person, so when it is omitted or blank the actor is recorded as `API`."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for updating a project. Every field is optional - send only what you want to change. An omitted field leaves the stored value alone; sending nothing at all is a 400."
       }
     }
   },
@@ -21057,22 +21329,26 @@ var OPERATIONS = [
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "New section title. Omit to leave unchanged."
           },
           "Color": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "New colour, as the app stores it. Omit to leave unchanged."
           },
           "UpdatedByName": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Display name to record as the author of this change. Omitted or blank, it is recorded as `API`."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Request body for updating a section. Both fields are optional; send only what you want to change. Neither field is clearable: a section always has a title and a colour, so an omitted field leaves the stored value alone and a supplied blank is rejected."
       }
     }
   },
@@ -21179,7 +21455,7 @@ var OPERATIONS = [
           "type": "string",
           "default": "updatedOn"
         },
-        "description": "Sort column: `updatedOn` (default) or `createdOn`."
+        "description": "Sort field: `updatedOn` (default) or `createdOn`."
       },
       {
         "name": "SortOrder",
@@ -21361,7 +21637,7 @@ var OPERATIONS = [
           "type": "string",
           "default": "createdOn"
         },
-        "description": "Sort column: `createdOn`."
+        "description": "Sort field: `createdOn`."
       },
       {
         "name": "SortOrder",
@@ -21472,7 +21748,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Display name to record as the ticket creator when no contact is resolved."
+            "description": "Display name to record as the ticket creator when no contact is resolved. Omitted or blank, it is recorded as `API`."
           },
           "CreatedOn": {
             "type": [
@@ -21712,7 +21988,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Display name to show the comment as. The comment is still recorded as API-authored \u2014 a name cannot be used to post as a specific real user."
+            "description": "Display name to show the comment as. The comment is still recorded as API-authored \u2014 a name cannot be used to post as a specific real user. Omitted or blank, it is recorded as `API`."
           },
           "CreatedOn": {
             "type": [
@@ -21728,13 +22004,16 @@ var OPERATIONS = [
               "type": "object",
               "properties": {
                 "Name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "File name."
                 },
                 "Url": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Temporary secure download link. Expires."
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "description": "A file attached to a comment, and what the upload endpoint returns."
             },
             "description": "Files to attach, as returned by the attachment upload endpoint."
           }
@@ -21895,7 +22174,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Display name recorded as the author of this update. Source is always stamped as Public API."
+            "description": "Display name recorded as the author of this update. Source is always stamped as Public API. Omitted or blank, it is recorded as `API`."
           },
           "ClosedOn": {
             "type": [
@@ -22056,28 +22335,28 @@ var OPERATIONS = [
                   "integer",
                   "null"
                 ],
-                "description": "Backend: AgreementId. The owning ContractId is resolved from this server-side."
+                "description": "Contract service line to bill time against. The owning contract is resolved from this automatically. Omit it and the override keeps the service line it has. Send it as null to clear the contract override outright."
               },
               "BillingRoleId": {
                 "type": [
                   "integer",
                   "null"
                 ],
-                "description": "Backend: BillingRole."
+                "description": "Default billing role for time entries created against the ticket."
               },
               "WorkTypeId": {
                 "type": [
                   "integer",
                   "null"
                 ],
-                "description": "Backend: WorkType."
+                "description": "Default work type for time entries created against the ticket."
               },
               "BillableStatusId": {
                 "type": [
                   "integer",
                   "null"
                 ],
-                "description": "Backend: BillableStatus."
+                "description": "Default billable status for time entries created against the ticket."
               }
             },
             "additionalProperties": false,
@@ -22085,18 +22364,18 @@ var OPERATIONS = [
           }
         },
         "additionalProperties": false,
-        "description": "Unified partial update for a ticket. Every field is optional; only the fields present in the request body are applied. Each present field is fanned out to its own internal command so the field's full side-effect chain (SQL + notifications + Cosmos timeline + Redis cache + SignalR) fires exactly as it does for the in-app path. This is deliberately NOT a multi-column write."
+        "description": "Unified partial update for a ticket. Every field is optional; only the fields present in the request body are applied. Each change has the same effects (notifications, timeline entries) as making it in the app."
       }
     }
   },
   {
-    "operationId": "get_v1_time-entries_id",
+    "operationId": "get_v1_time-entries_timeEntryId",
     "method": "GET",
-    "path": "/v1/time-entries/{id}",
+    "path": "/v1/time-entries/{timeEntryId}",
     "summary": "Gets a single time entry by id.",
     "params": [
       {
-        "name": "id",
+        "name": "timeEntryId",
         "in": "path",
         "required": true,
         "schema": {
@@ -22260,7 +22539,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Ticket to log the time against. Send **either** this or TaskId, not both and not neither. Validated against the service provider - an unknown ticket is a 404. The entry is billed to the ticket's client; a ticket with no client is rejected with 409.",
+            "description": "Ticket to log the time against. Send **either** this or `TaskId`, not both and not neither. Validated against the service provider - an unknown ticket is a 404. The entry is billed to the ticket's client; a ticket with no client is rejected with 409.",
             "format": "uuid"
           },
           "TaskId": {
@@ -22368,13 +22647,13 @@ var OPERATIONS = [
     }
   },
   {
-    "operationId": "patch_v1_time-entries_id",
+    "operationId": "patch_v1_time-entries_timeEntryId",
     "method": "PATCH",
-    "path": "/v1/time-entries/{id}",
+    "path": "/v1/time-entries/{timeEntryId}",
     "summary": "Partially updates a time entry. Send only the fields you want to change.",
     "params": [
       {
-        "name": "id",
+        "name": "timeEntryId",
         "in": "path",
         "required": true,
         "schema": {
@@ -22473,13 +22752,13 @@ var OPERATIONS = [
     }
   },
   {
-    "operationId": "get_v1_uptime_id",
+    "operationId": "get_v1_uptime_checkId",
     "method": "GET",
-    "path": "/v1/uptime/{id}",
+    "path": "/v1/uptime/{checkId}",
     "summary": "Gets a single uptime check by id.",
     "params": [
       {
-        "name": "id",
+        "name": "checkId",
         "in": "path",
         "required": true,
         "schema": {
@@ -22573,25 +22852,25 @@ var OPERATIONS = [
                   "string",
                   "null"
                 ],
-                "description": 'Host to ping, for ICMP and TCP checks. Stored as `Settings["Ip"]`. ICMP accepts a hostname as well as an address; TCP requires a parseable address.'
+                "description": "Host to ping, for ICMP and TCP checks. ICMP accepts a hostname as well as an address; TCP requires a parseable address."
               },
               "Port": {
                 "type": [
                   "integer",
                   "null"
                 ],
-                "description": 'Port to connect to, for TCP checks. Stored as `Settings["Port"]`, as a JSON string - the monitoring node parses it with `Int32.Parse`. Exposed as a number here because a port is one, and converted at the boundary.'
+                "description": "Port to connect to, for TCP checks."
               },
               "Url": {
                 "type": [
                   "string",
                   "null"
                 ],
-                "description": 'Address to request, for HTTP checks. Stored as `Settings["Url"]`.'
+                "description": "Address to request, for HTTP checks."
               }
             },
             "additionalProperties": false,
-            "description": "What an uptime check points at. Which fields are populated depends on the check type: ICMP uses Ip, TCP uses Ip and Port, HTTP uses Url. The others are null. Backed by `Asset.NodeCheck.Settings`, an NVarChar(200) column holding a flat JSON object of strings. The keys the monitoring node actually reads are `Ip`, `Port` and `Url`, exactly that cased, in `Gorelo.Echo.Node/PingSystem/PingHelper.cs` (I"
+            "description": "What an uptime check points at. Which fields are populated depends on the check type: ICMP uses `Ip`, TCP uses `Ip` and `Port`, HTTP uses `Url`. The others are null."
           },
           "AdoptClientAssets": {
             "type": "boolean",
@@ -22602,7 +22881,7 @@ var OPERATIONS = [
               "integer",
               "null"
             ],
-            "description": "Identifier of the client the check belongs to. When supplied, LocationId is required with it."
+            "description": "Identifier of the client the check belongs to. When supplied, `LocationId` is required with it."
           },
           "LocationId": {
             "type": [
@@ -22616,7 +22895,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "What the check watches, free text. , NVarChar(250)."
+            "description": "What the check watches, free text. Max 250 characters."
           },
           "Frequency": {
             "type": "integer",
@@ -22627,7 +22906,7 @@ var OPERATIONS = [
               "integer",
               "null"
             ],
-            "description": "How many times a failure is rechecked before the check counts as down. Defaults to 2, matching the internal command's own default."
+            "description": "How many times a failure is rechecked before the check counts as down. Defaults to 2."
           },
           "RegionId": {
             "type": "integer",
@@ -22638,7 +22917,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Link to the ISP or provider status page for this endpoint. , NVarChar(500)."
+            "description": "Link to the ISP or provider status page for this endpoint. Max 500 characters."
           },
           "TagIds": {
             "type": [
@@ -22657,13 +22936,13 @@ var OPERATIONS = [
     }
   },
   {
-    "operationId": "patch_v1_uptime_id",
+    "operationId": "patch_v1_uptime_checkId",
     "method": "PATCH",
-    "path": "/v1/uptime/{id}",
+    "path": "/v1/uptime/{checkId}",
     "summary": "Updates an uptime check. Send only the fields you want to change.",
     "params": [
       {
-        "name": "id",
+        "name": "checkId",
         "in": "path",
         "required": true,
         "schema": {
@@ -22689,7 +22968,7 @@ var OPERATIONS = [
               "integer",
               "null"
             ],
-            "description": "What the check does: 1 ICMP, 2 HTTP, 3 TCP. Changing this requires sending a Target valid for the new type, because the two are stored together."
+            "description": "What the check does: 1 ICMP, 2 HTTP, 3 TCP. Changing this requires sending a `Target` valid for the new type, because the two are stored together."
           },
           "Target": {
             "type": "object",
@@ -22699,25 +22978,25 @@ var OPERATIONS = [
                   "string",
                   "null"
                 ],
-                "description": 'Host to ping, for ICMP and TCP checks. Stored as `Settings["Ip"]`. ICMP accepts a hostname as well as an address; TCP requires a parseable address.'
+                "description": "Host to ping, for ICMP and TCP checks. ICMP accepts a hostname as well as an address; TCP requires a parseable address."
               },
               "Port": {
                 "type": [
                   "integer",
                   "null"
                 ],
-                "description": 'Port to connect to, for TCP checks. Stored as `Settings["Port"]`, as a JSON string - the monitoring node parses it with `Int32.Parse`. Exposed as a number here because a port is one, and converted at the boundary.'
+                "description": "Port to connect to, for TCP checks."
               },
               "Url": {
                 "type": [
                   "string",
                   "null"
                 ],
-                "description": 'Address to request, for HTTP checks. Stored as `Settings["Url"]`.'
+                "description": "Address to request, for HTTP checks."
               }
             },
             "additionalProperties": false,
-            "description": "What an uptime check points at. Which fields are populated depends on the check type: ICMP uses Ip, TCP uses Ip and Port, HTTP uses Url. The others are null. Backed by `Asset.NodeCheck.Settings`, an NVarChar(200) column holding a flat JSON object of strings. The keys the monitoring node actually reads are `Ip`, `Port` and `Url`, exactly that cased, in `Gorelo.Echo.Node/PingSystem/PingHelper.cs` (I"
+            "description": "What an uptime check points at. Which fields are populated depends on the check type: ICMP uses `Ip`, TCP uses `Ip` and `Port`, HTTP uses `Url`. The others are null."
           },
           "AdoptClientAssets": {
             "type": [
@@ -22731,7 +23010,7 @@ var OPERATIONS = [
               "integer",
               "null"
             ],
-            "description": "Identifier of the client the check belongs to. Sending this without LocationId is rejected, because a location belongs to a client and moving one without the other would file the check at the old client's site."
+            "description": "Identifier of the client the check belongs to. Sending this without `LocationId` is rejected, because a location belongs to a client and moving one without the other would file the check at the old client's site."
           },
           "LocationId": {
             "type": [
@@ -22745,7 +23024,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "What the check watches."
+            "description": "What the check watches, free text. Max 250 characters."
           },
           "Frequency": {
             "type": [
@@ -22783,14 +23062,14 @@ var OPERATIONS = [
             "items": {
               "type": "integer"
             },
-            "description": "Replaces the check's tags outright. An empty array clears them; omitting the field leaves them alone. This is the list-of-ids convention the rest of the surface uses (rule G.7)."
+            "description": "Replaces the check's tags outright. An empty array clears them; omitting the field leaves them alone."
           },
           "MaintenanceMode": {
             "type": "object",
             "properties": {
               "Enabled": {
                 "type": "boolean",
-                "description": "Whether the check is currently in maintenance mode. False when no active maintenance row exists, in which case the remaining fields are null."
+                "description": "Whether the check is currently in maintenance mode. When false, the remaining fields are null."
               },
               "StartDateTime": {
                 "type": [
@@ -22805,18 +23084,18 @@ var OPERATIONS = [
                   "integer",
                   "null"
                 ],
-                "description": "How long the window lasts, in minutes. Zero means the window does not expire on its own - the internal handler schedules no end message for a zero duration."
+                "description": "How long the window lasts, in minutes. Zero means the window does not expire on its own."
               },
               "Reason": {
                 "type": [
                   "string",
                   "null"
                 ],
-                "description": "Why the check was put into maintenance. , NVarChar(500)."
+                "description": "Why the check was put into maintenance. Max 500 characters."
               }
             },
             "additionalProperties": false,
-            "description": "A check's maintenance window - the period its failures are suppressed for. Backed by the `Asset.NodeCheckMaintenance` table, one active row per check (`NodeCheckMaintenanceEntity`). Field names match the ones the update request takes, per rule G.2: one concept, one name, request and response alike. The internal model `NodeCheckMaintenanceModeResponseModel` uses these same two names; the draft spec"
+            "description": "A check's maintenance window - the period its failures are suppressed for. Field names match the ones the update request takes."
           }
         },
         "additionalProperties": false,
