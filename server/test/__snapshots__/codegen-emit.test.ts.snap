@@ -9,6 +9,30 @@ export const SPEC_VERSION = "1.0.0";
 
 export const OPERATIONS: OperationDef[] = [
   {
+    "operationId": "post_v1_api-keys",
+    "method": "POST",
+    "path": "/v1/api-keys",
+    "summary": "Creates an API key.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_admin",
+    "action": "api_keys_create",
+    "tier": "full",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  {
     "operationId": "post_v1_invoices",
     "method": "POST",
     "path": "/v1/invoices",

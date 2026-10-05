@@ -6,6 +6,76 @@ export const SPEC_VERSION = "1.0.0";
 
 export const OPERATIONS: OperationDef[] = [
   {
+    "operationId": "post_v1_api-keys",
+    "method": "POST",
+    "path": "/v1/api-keys",
+    "summary": "Creates an API key for the authenticated service provider.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_admin",
+    "action": "api_keys_create",
+    "tier": "full",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string",
+            "description": "A name to identify the key by. Required."
+          },
+          "Description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the key is for."
+          },
+          "Scopes": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "ServiceProvider:read",
+                "ServiceProvider:write",
+                "ServiceProvider:delete",
+                "Tickets:read",
+                "Tickets:write",
+                "Tickets:delete",
+                "Clients:read",
+                "Clients:write",
+                "Clients:delete",
+                "Contacts:read",
+                "Contacts:write",
+                "Contacts:delete",
+                "Billing:read",
+                "Billing:write",
+                "Billing:delete",
+                "Project:read",
+                "Project:write",
+                "Project:delete",
+                "Assets:read",
+                "Assets:write",
+                "Assets:delete",
+                "Alerts:read",
+                "Alerts:write",
+                "Alerts:delete",
+                "Forms:read",
+                "Forms:write",
+                "Forms:delete"
+              ],
+              "type": "string"
+            },
+            "description": "The scopes the new key carries, each an explicit `\"Module:verb\"`. Required, and every entry must be one the calling key already holds. The valid values are published as the enum on this property. Verbs are independent - `write` does not imply `read`. Note `Project` is singular, and the key management screen shows `ServiceProvider` under the name <b>Organization</b>."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for creating an API key. The owning service provider and the calling key's own scopes are resolved from the request context, not from the body."
+      }
+    }
+  },
+  {
     "operationId": "delete_v1_assets_agents_deviceId",
     "method": "DELETE",
     "path": "/v1/assets/agents/{deviceId}",
@@ -1049,76 +1119,6 @@ export const OPERATIONS: OperationDef[] = [
         },
         "additionalProperties": false,
         "description": "Request body for posting an external alert against a client."
-      }
-    }
-  },
-  {
-    "operationId": "post_v1_api-keys",
-    "method": "POST",
-    "path": "/v1/api-keys",
-    "summary": "Creates an API key for the authenticated service provider.",
-    "params": [],
-    "response": "json",
-    "paginated": false,
-    "tool": "gorelo_api_keys_write",
-    "action": "create",
-    "tier": "write",
-    "body": {
-      "contentType": "application/json",
-      "required": false,
-      "schema": {
-        "type": "object",
-        "properties": {
-          "Name": {
-            "type": "string",
-            "description": "A name to identify the key by. Required."
-          },
-          "Description": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "What the key is for."
-          },
-          "Scopes": {
-            "type": "array",
-            "items": {
-              "enum": [
-                "ServiceProvider:read",
-                "ServiceProvider:write",
-                "ServiceProvider:delete",
-                "Tickets:read",
-                "Tickets:write",
-                "Tickets:delete",
-                "Clients:read",
-                "Clients:write",
-                "Clients:delete",
-                "Contacts:read",
-                "Contacts:write",
-                "Contacts:delete",
-                "Billing:read",
-                "Billing:write",
-                "Billing:delete",
-                "Project:read",
-                "Project:write",
-                "Project:delete",
-                "Assets:read",
-                "Assets:write",
-                "Assets:delete",
-                "Alerts:read",
-                "Alerts:write",
-                "Alerts:delete",
-                "Forms:read",
-                "Forms:write",
-                "Forms:delete"
-              ],
-              "type": "string"
-            },
-            "description": "The scopes the new key carries, each an explicit `\"Module:verb\"`. Required, and every entry must be one the calling key already holds. The valid values are published as the enum on this property. Verbs are independent - `write` does not imply `read`. Note `Project` is singular, and the key management screen shows `ServiceProvider` under the name <b>Organization</b>."
-          }
-        },
-        "additionalProperties": false,
-        "description": "Request body for creating an API key. The owning service provider and the calling key's own scopes are resolved from the request context, not from the body."
       }
     }
   },

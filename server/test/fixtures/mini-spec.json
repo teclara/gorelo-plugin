@@ -164,6 +164,20 @@
         "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
       }
     },
+    "/v1/api-keys": {
+      "post": {
+        "operationId": "post_v1_api-keys",
+        "summary": "Creates an API key.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "Name": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": { "200": { "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
     "/v1/attachments": {
       "post": {
         "operationId": "post_v1_attachments",

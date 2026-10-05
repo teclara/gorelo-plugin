@@ -112,6 +112,7 @@ describe("listTools", () => {
     const admin = reg.listTools().find((t) => t.name === "gorelo_admin")!;
     expect(admin.annotations.destructiveHint).toBe(true);
     expect((admin.inputSchema.properties as any).action.enum).toEqual([
+      "api_keys_create",
       "invoices_create",
       "items_create",
       "items_update",

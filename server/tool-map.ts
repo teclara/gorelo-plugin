@@ -54,6 +54,8 @@ export const OVERRIDES: Record<string, Override> = {
   post_v1_invoices: { tier: "write", forceBody: { StatusId: 1 }, adminCopy: true },
   post_v1_items: { tier: "full" },
   patch_v1_items_itemId: { tier: "full" },
+  // Minting API keys is never a routine write: admin tier only.
+  "post_v1_api-keys": { tier: "full" },
 };
 
 export function resolveRoute(path: string): { tool: string; base: string } {
