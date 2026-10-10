@@ -16995,9 +16995,9 @@ var OPERATIONS = [
             "type": "array",
             "items": {
               "enum": [
-                "ServiceProvider:read",
-                "ServiceProvider:write",
-                "ServiceProvider:delete",
+                "Organization:read",
+                "Organization:write",
+                "Organization:delete",
                 "Tickets:read",
                 "Tickets:write",
                 "Tickets:delete",
@@ -17025,13 +17025,36 @@ var OPERATIONS = [
               ],
               "type": "string"
             },
-            "description": 'The scopes the new key carries, each an explicit `"Module:verb"`. Required, and every entry must be one the calling key already holds. The valid values are published as the enum on this property. Verbs are independent - `write` does not imply `read`. Note `Project` is singular, and the key management screen shows `ServiceProvider` under the name <b>Organization</b>.'
+            "description": 'The scopes the new key carries, each an explicit `"Module:verb"`. Required, and every entry must be one the calling key already holds. The valid values are published as the enum on this property. Verbs are independent - `write` does not imply `read`. Note `Project` is singular. Scopes are stored as published here, whatever casing is sent; the older `ServiceProvider:verb` is still accepted and is s'
           }
         },
         "additionalProperties": false,
         "description": "Request body for creating an API key. The owning service provider and the calling key's own scopes are resolved from the request context, not from the body."
       }
     }
+  },
+  {
+    "operationId": "delete_v1_api-keys_apiKeyId",
+    "method": "DELETE",
+    "path": "/v1/api-keys/{apiKeyId}",
+    "summary": "Revokes an API key.",
+    "params": [
+      {
+        "name": "apiKeyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "API key to revoke."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_admin",
+    "action": "api_keys_delete",
+    "tier": "full"
   },
   {
     "operationId": "delete_v1_assets_agents_deviceId",
@@ -17680,6 +17703,76 @@ var OPERATIONS = [
     }
   },
   {
+    "operationId": "post_v1_payments",
+    "method": "POST",
+    "path": "/v1/payments",
+    "summary": "Records a payment received outside Gorelo against an approved invoice.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_admin",
+    "action": "payments_create",
+    "tier": "full",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "InvoiceId": {
+            "type": "string",
+            "description": "Invoice the payment is recorded against. Required. The invoice must be Approved; an invoice that does not exist, or belongs to another service provider, is a 404.",
+            "format": "uuid"
+          },
+          "Amount": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Amount received. Optional - defaults to the invoice's whole amount due when omitted. Must be greater than 0 and no more than the invoice's amount due."
+          },
+          "PaymentDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date the payment was received, a calendar date. Required. Cannot be later than today in the service provider's time zone.",
+            "format": "date"
+          },
+          "Reference": {
+            "type": "string",
+            "description": "Your reference for the payment, such as a bank transaction or remittance number. Required, max 50 characters."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Records a payment received outside Gorelo against an invoice."
+      }
+    }
+  },
+  {
+    "operationId": "delete_v1_payments_paymentId",
+    "method": "DELETE",
+    "path": "/v1/payments/{paymentId}",
+    "summary": "Deletes a payment that was recorded through the API.",
+    "params": [
+      {
+        "name": "paymentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Payment identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_admin",
+    "action": "payments_delete",
+    "tier": "full"
+  },
+  {
     "operationId": "delete_v1_projects_projectId_tasks_taskId",
     "method": "DELETE",
     "path": "/v1/projects/{projectId}/tasks/{taskId}",
@@ -18081,6 +18174,18 @@ var OPERATIONS = [
     }
   },
   {
+    "operationId": "get_v1_api-keys",
+    "method": "GET",
+    "path": "/v1/api-keys",
+    "summary": "Lists the service provider's API keys using cursor pagination, newest first.",
+    "params": [],
+    "response": "json",
+    "paginated": true,
+    "tool": "gorelo_api_keys",
+    "action": "list",
+    "tier": "read"
+  },
+  {
     "operationId": "get_v1_assets_agents_deviceId",
     "method": "GET",
     "path": "/v1/assets/agents/{deviceId}",
@@ -18253,6 +18358,191 @@ var OPERATIONS = [
     "tool": "gorelo_assets",
     "action": "list_custom",
     "tier": "read"
+  },
+  {
+    "operationId": "get_v1_assets_custom_hardware-types",
+    "method": "GET",
+    "path": "/v1/assets/custom/hardware-types",
+    "summary": "Lists the hardware types a custom asset can be given.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_assets",
+    "action": "list_custom_hardware_types",
+    "tier": "read"
+  },
+  {
+    "operationId": "post_v1_assets_custom",
+    "method": "POST",
+    "path": "/v1/assets/custom",
+    "summary": "Creates a custom asset.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_assets_write",
+    "action": "create_custom",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string",
+            "description": "Display name of the asset. Required, max 300 characters, cannot be blank."
+          },
+          "ClientId": {
+            "type": "integer",
+            "description": "Identifier of the client the asset belongs to. Required; the client must be active."
+          },
+          "LocationId": {
+            "type": "integer",
+            "description": "Identifier of the client location the asset sits at. Required; must be an active location of `ClientId`."
+          },
+          "HardwareTypeId": {
+            "type": "integer",
+            "description": "Identifier of the asset's hardware type, one of the service provider's active custom asset types. Required."
+          },
+          "Description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-text description. Optional, max 1000 characters."
+          },
+          "ContactId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the contact the asset is assigned to. Optional; must be an active contact of `ClientId`."
+          },
+          "WarrantyEndDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date the warranty ends, a calendar date (yyyy-MM-dd). Optional.",
+            "format": "date"
+          },
+          "IpAddress": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IPv4 address of the asset, such as 192.168.1.20. Optional."
+          },
+          "SerialNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Hardware serial number. Optional, max 250 characters."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for creating a custom asset. The owning service provider is resolved from the request context, not from the body."
+      }
+    }
+  },
+  {
+    "operationId": "patch_v1_assets_custom_customAssetId",
+    "method": "PATCH",
+    "path": "/v1/assets/custom/{customAssetId}",
+    "summary": "Updates a custom asset. Send only the fields you want to change.",
+    "params": [
+      {
+        "name": "customAssetId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Custom asset to update."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_assets_write",
+    "action": "update_custom",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name of the asset. Max 300 characters, cannot be blank. Null leaves it unchanged."
+          },
+          "ClientId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the client the asset belongs to. The client cannot be changed: send the asset's current client or leave the field out."
+          },
+          "LocationId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the client location the asset sits at; must be an active location of the asset's client. Null leaves it unchanged."
+          },
+          "HardwareTypeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the asset's hardware type, one of the service provider's active custom asset types. Null leaves it unchanged."
+          },
+          "Description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-text description, max 1000 characters. Send null to clear it."
+          },
+          "ContactId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the contact the asset is assigned to; must be an active contact of the asset's client. Send null to unassign it."
+          },
+          "WarrantyEndDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date the warranty ends, a calendar date (yyyy-MM-dd). Send null to clear it.",
+            "format": "date"
+          },
+          "IpAddress": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IPv4 address of the asset, such as 192.168.1.20. Send null to clear it."
+          },
+          "SerialNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Hardware serial number, max 250 characters. Send null to clear it."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for updating a custom asset. Every field is optional - send only what should change. An omitted field keeps the value the asset already holds."
+      }
+    }
   },
   {
     "operationId": "post_v1_attachments",
@@ -18700,7 +18990,7 @@ var OPERATIONS = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated contact status ids to include."
+        "description": "Comma-separated contact status ids to include: 1 Active, 2 Inactive, 3 Temporary, 4 Archive."
       },
       {
         "name": "Query",
@@ -18762,7 +19052,7 @@ var OPERATIONS = [
     "operationId": "post_v1_contacts",
     "method": "POST",
     "path": "/v1/contacts",
-    "summary": "Creates a contact under a client.",
+    "summary": "Creates a contact under a client, or a temporary contact when no client is given.",
     "params": [],
     "response": "json",
     "paginated": false,
@@ -18774,7 +19064,6 @@ var OPERATIONS = [
       "required": false,
       "schema": {
         "required": [
-          "ClientId",
           "FirstName",
           "LastName",
           "PrimaryEmail"
@@ -18792,15 +19081,18 @@ var OPERATIONS = [
             "description": "Contact last name. Required. Maximum 150 characters."
           },
           "ClientId": {
-            "type": "integer",
-            "description": "Identifier of the client the contact belongs to. Required."
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Identifier of the client the contact belongs to. Optional. When omitted the contact is created as a temporary contact (IsTemporaryContact true) with no client, the way an email from an unknown requester creates one; a temporary contact can be the contact or a cc contact on a ticket that has no client."
           },
           "LocationId": {
             "type": [
               "integer",
               "null"
             ],
-            "description": "Identifier of the client location the contact belongs to."
+            "description": "Identifier of the client location the contact belongs to. Requires ClientId."
           },
           "PrimaryEmail": {
             "minLength": 1,
@@ -18851,7 +19143,7 @@ var OPERATIONS = [
           }
         },
         "additionalProperties": false,
-        "description": "Request body for creating a contact under a client."
+        "description": "Request body for creating a contact, under a client or, with no client, as a temporary contact."
       }
     }
   },
@@ -20110,7 +20402,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "When the task was created. UTC. Defaults to now - supply it only when importing a task that already existed elsewhere.",
+            "description": "When the task was created. UTC. Defaults to now - supply it only when importing a task that already existed elsewhere. Send only when importing history. A record with this field set sends no emails or notifications.",
             "format": "date-time"
           },
           "UpdatedOn": {
@@ -20225,7 +20517,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "When the comment was written. UTC. Defaults to now.",
+            "description": "When the comment was written. UTC. Defaults to now. Send only when importing history. A record with this field set sends no emails or notifications.",
             "format": "date-time"
           }
         },
@@ -20955,7 +21247,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Backdate the project's creation timestamp - for importing projects from another system. Must not be in the future. Omit to use the current time.",
+            "description": "Backdate the project's creation timestamp - for importing projects from another system. Must not be in the future. Omit to use the current time. Send only when importing history. A record with this field set sends no emails or notifications.",
             "format": "date-time"
           },
           "UpdatedOn": {
@@ -21755,7 +22047,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Backdate the ticket's creation timestamp \u2014 for importing tickets from another system. Must not be in the future. Omit to use the current time. Required when ClosedOn or UpdatedOn is supplied. A caller migrating a ticket sends CreatedOn, ClosedOn and UpdatedOn together, so the ticket keeps the dates it had in the other system.",
+            "description": "Backdate the ticket's creation timestamp \u2014 for importing tickets from another system. Must not be in the future. Omit to use the current time. Required when ClosedOn or UpdatedOn is supplied. A caller migrating a ticket sends CreatedOn, ClosedOn and UpdatedOn together, so the ticket keeps the dates it had in the other system. Send only when importing history. A record with this field set sends no ",
             "format": "date-time"
           },
           "ClosedOn": {
@@ -21763,7 +22055,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "The date the ticket was closed, for importing already-closed tickets from another system. Requires CreatedOn to be supplied. Only valid when the ticket is created in a closed status. Must not be in the future or earlier than CreatedOn. Omit to have a ticket created in a closed status closed as of its creation time.",
+            "description": "The date the ticket was closed, for importing already-closed tickets from another system. Requires CreatedOn to be supplied. Only valid when the ticket is created in a closed status. Must not be in the future or earlier than CreatedOn. Omit to have a ticket created in a closed status closed as of its creation time. Send only when importing history. A record with this field set sends no emails or n",
             "format": "date-time"
           },
           "UpdatedOn": {
@@ -21786,14 +22078,14 @@ var OPERATIONS = [
               "integer",
               "null"
             ],
-            "description": "Identifier of the client location the ticket belongs to."
+            "description": "Identifier of the client location the ticket belongs to. Requires ClientId."
           },
           "ContactId": {
             "type": [
               "integer",
               "null"
             ],
-            "description": "Identifier of the primary contact for the ticket."
+            "description": "Identifier of the primary contact for the ticket. With a ClientId it must be a contact of that client; without one it must be a temporary contact (IsTemporaryContact true)."
           },
           "CcContactIds": {
             "type": [
@@ -21803,7 +22095,7 @@ var OPERATIONS = [
             "items": {
               "type": "integer"
             },
-            "description": "Identifiers of additional (CC) contacts."
+            "description": "Identifiers of additional (CC) contacts. At most 100. Same rule as ContactId: contacts of the ticket's client, or temporary contacts when the ticket has no client."
           },
           "StatusId": {
             "type": "integer",
@@ -21920,14 +22212,14 @@ var OPERATIONS = [
               "boolean",
               "null"
             ],
-            "description": 'When true, sends a "ticket created" email to the contact. Defaults to false.'
+            "description": 'When true, sends a "ticket created" email to the contact. Defaults to false. Ignored when CreatedOn or ClosedOn is supplied.'
           },
           "IsUnread": {
             "type": [
               "boolean",
               "null"
             ],
-            "description": "Whether the ticket is created in an unread state. Defaults to true."
+            "description": "Whether the ticket is created in an unread state. Defaults to true. Ignored when CreatedOn or ClosedOn is supplied: the ticket is created read."
           }
         },
         "additionalProperties": false,
@@ -21995,7 +22287,7 @@ var OPERATIONS = [
               "string",
               "null"
             ],
-            "description": "Backdate the comment's timestamp \u2014 for importing ticket history from another system. Must not be in the future or earlier than the ticket's own CreatedOn. Omit to use the current time. When supplied, the ticket's UpdatedOn becomes the later of its current value and this timestamp, so importing older history does not push the ticket to the top of an updatedOn-sorted list.",
+            "description": "Backdate the comment's timestamp \u2014 for importing ticket history from another system. Must not be in the future or earlier than the ticket's own CreatedOn. Omit to use the current time. When supplied, the ticket's UpdatedOn becomes the later of its current value and this timestamp, so importing older history does not push the ticket to the top of an updatedOn-sorted list. Send only when importing h",
             "format": "date-time"
           },
           "Attachments": {
@@ -22204,14 +22496,14 @@ var OPERATIONS = [
               "integer",
               "null"
             ],
-            "description": "Client location the ticket belongs to."
+            "description": "Client location the ticket belongs to. Requires the ticket to have a client."
           },
           "ContactId": {
             "type": [
               "integer",
               "null"
             ],
-            "description": "Primary contact on the ticket."
+            "description": "Primary contact on the ticket. Must be a contact of the ticket's client (the ClientId sent, otherwise the one the ticket has); a ticket with no client takes a temporary contact (IsTemporaryContact true)."
           },
           "CcContactIds": {
             "type": [
@@ -22221,7 +22513,7 @@ var OPERATIONS = [
             "items": {
               "type": "integer"
             },
-            "description": "Cc contacts on the ticket."
+            "description": "Cc contacts on the ticket. At most 100. Same rule as ContactId: contacts of the ticket's client, or temporary contacts when the ticket has no client."
           },
           "StatusId": {
             "type": [

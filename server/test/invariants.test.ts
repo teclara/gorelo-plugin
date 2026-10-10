@@ -7,6 +7,8 @@ const name = (o: { tool: string; action: string }) => `${o.tool}.${o.action}`;
 /** Every non-GET action reachable below the full tier. Adding one here is a deliberate review decision. */
 const NON_GET_OUTSIDE_ADMIN = [
   "gorelo_alerts_write.create",
+  "gorelo_assets_write.create_custom",
+  "gorelo_assets_write.update_custom",
   "gorelo_attachments_write.upload",
   "gorelo_clients_write.create",
   "gorelo_clients_write.update",

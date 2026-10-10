@@ -35,6 +35,7 @@ export const FULL_BY_DEFAULT_TOOLS = new Set([
   "gorelo_contracts",
   "gorelo_items",
   "gorelo_billing_reference",
+  "gorelo_payments",
 ]);
 
 export interface Override {
