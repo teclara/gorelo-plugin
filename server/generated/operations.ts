@@ -1972,6 +1972,31 @@ export const OPERATIONS: OperationDef[] = [
               "null"
             ],
             "description": "New alternate / trading name. Leave null to keep the current value. Maximum 500 characters."
+          },
+          "CustomProperties": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "Id": {
+                  "type": "integer",
+                  "description": "Identifier of the custom field to set."
+                },
+                "Value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "New value to save. `null` clears the saved value, so the field falls back to its default (which may itself be empty); an empty string saves an empty value. Either is rejected with a 400 on a required field when it would leave the field with no value."
+                }
+              },
+              "additionalProperties": false,
+              "description": "A single custom-field value to set on a PATCH body. Identified by `Id` only; a custom field not present in the array is left untouched."
+            },
+            "description": "Custom field values to upsert. Identified by `Id` (the custom field id) only - an entry present updates that field's value, one absent from the array is left untouched, and omitting `CustomProperties` entirely leaves all custom properties untouched. A `null``Value` clears the saved value so the field falls back to its default; an empty string saves an empty value. On a required field, either is re"
           }
         },
         "additionalProperties": false,
