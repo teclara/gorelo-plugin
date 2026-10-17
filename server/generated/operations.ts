@@ -63,7 +63,10 @@ export const OPERATIONS: OperationDef[] = [
                 "Alerts:delete",
                 "Forms:read",
                 "Forms:write",
-                "Forms:delete"
+                "Forms:delete",
+                "Documents:read",
+                "Documents:write",
+                "Documents:delete"
               ],
               "type": "string"
             },
@@ -208,6 +211,38 @@ export const OPERATIONS: OperationDef[] = [
     "paginated": false,
     "tool": "gorelo_admin",
     "action": "contracts_delete",
+    "tier": "full"
+  },
+  {
+    "operationId": "delete_v1_documents_documentId_related-items_relatedItemId",
+    "method": "DELETE",
+    "path": "/v1/documents/{documentId}/related-items/{relatedItemId}",
+    "summary": "Removes one related item from a document.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document identifier."
+      },
+      {
+        "name": "relatedItemId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "The related item's `Id`, from the related items list."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_admin",
+    "action": "documents_remove_related_item",
     "tier": "full"
   },
   {
@@ -1103,7 +1138,7 @@ export const OPERATIONS: OperationDef[] = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated status ids: New=1, Ignored=2, Ticketed=3. 0 (Unknown) matches any other status."
+        "description": "Comma-separated status ids: New=1, Dismissed=2, Ticketed=3. Any other id is a 400."
       },
       {
         "name": "TypeIds",
@@ -1251,6 +1286,29 @@ export const OPERATIONS: OperationDef[] = [
     "tier": "read"
   },
   {
+    "operationId": "get_v1_assets_custom_customAssetId",
+    "method": "GET",
+    "path": "/v1/assets/custom/{customAssetId}",
+    "summary": "Gets a single custom asset by id.",
+    "params": [
+      {
+        "name": "customAssetId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Custom asset identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_assets",
+    "action": "get_custom",
+    "tier": "read"
+  },
+  {
     "operationId": "get_v1_assets_agents",
     "method": "GET",
     "path": "/v1/assets/agents",
@@ -1263,7 +1321,7 @@ export const OPERATIONS: OperationDef[] = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated device status ids to include. Deleted and client-inactivated devices are excluded either way."
+        "description": "Comma-separated device status ids to include: 1 Unreachable, 2 Active, 3 Inactive, 4 Pending Delete, 6 Pending client inactive. Up to 100 ids; any other value is a 400. Deleted and client-inactivated devices are excluded either way."
       },
       {
         "name": "ClientIds",
@@ -1465,7 +1523,7 @@ export const OPERATIONS: OperationDef[] = [
               "string",
               "null"
             ],
-            "description": "Date the warranty ends, a calendar date (yyyy-MM-dd). Optional.",
+            "description": "Date the warranty ends, a calendar date in the form yyyy-MM-dd. A value with a time or a time zone is rejected. Optional.",
             "format": "date"
           },
           "IpAddress": {
@@ -1528,7 +1586,7 @@ export const OPERATIONS: OperationDef[] = [
               "integer",
               "null"
             ],
-            "description": "Identifier of the client the asset belongs to. The client cannot be changed: send the asset's current client or leave the field out."
+            "description": "Identifier of the client the asset belongs to; must be an active client. A different client moves the asset, and its location and contact must then belong to the new client. Null leaves it unchanged."
           },
           "LocationId": {
             "type": [
@@ -1563,7 +1621,7 @@ export const OPERATIONS: OperationDef[] = [
               "string",
               "null"
             ],
-            "description": "Date the warranty ends, a calendar date (yyyy-MM-dd). Send null to clear it.",
+            "description": "Date the warranty ends, a calendar date in the form yyyy-MM-dd. A value with a time or a time zone is rejected. Send null to clear it.",
             "format": "date"
           },
           "IpAddress": {
@@ -1700,7 +1758,7 @@ export const OPERATIONS: OperationDef[] = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated client status ids to include; when omitted, inactive (2) clients are excluded, and when supplied only the listed statuses are returned."
+        "description": "Comma-separated client status ids to include: 1 Active, 3 Credit hold, 4 Archived. Default excludes Archived; when supplied, only the listed statuses are returned. Any other value is a 400. Up to 100 values. Deleted clients are never listed."
       },
       {
         "name": "Query",
@@ -1957,7 +2015,7 @@ export const OPERATIONS: OperationDef[] = [
               "integer",
               "null"
             ],
-            "description": "New status identifier. Leave null to keep the current value."
+            "description": "New status id: 1 Active, 3 Credit hold, 4 Archived. Leave null to keep the current value. Any other value is a 400; to delete a client use DELETE /v1/clients/{clientId}."
           },
           "BillingName": {
             "type": [
@@ -1972,6 +2030,31 @@ export const OPERATIONS: OperationDef[] = [
               "null"
             ],
             "description": "New alternate / trading name. Leave null to keep the current value. Maximum 500 characters."
+          },
+          "CustomProperties": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "Id": {
+                  "type": "integer",
+                  "description": "Identifier of the custom field to set."
+                },
+                "Value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "New value to save. `null` clears the saved value, so the field falls back to its default (which may itself be empty); an empty string saves an empty value. Either is rejected with a 400 on a required field when it would leave the field with no value."
+                }
+              },
+              "additionalProperties": false,
+              "description": "A single custom-field value to set on a PATCH body. Identified by `Id` only; a custom field not present in the array is left untouched."
+            },
+            "description": "Custom field values to upsert. Identified by `Id` (the custom field id) only - an entry present updates that field's value, one absent from the array is left untouched, and omitting `CustomProperties` entirely leaves all custom properties untouched. A `null``Value` clears the saved value so the field falls back to its default; an empty string saves an empty value. On a required field, either is re"
           }
         },
         "additionalProperties": false,
@@ -2032,7 +2115,7 @@ export const OPERATIONS: OperationDef[] = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated contact status ids to include: 1 Active, 2 Inactive, 3 Temporary, 4 Archive."
+        "description": "Comma-separated contact status ids to include: 1 Active, 3 Temporary, 4 Archived. Default excludes Archived; when supplied, only the listed statuses are returned. Any other value is a 400. Up to 100 values. Deleted contacts are never listed."
       },
       {
         "name": "Query",
@@ -2332,6 +2415,15 @@ export const OPERATIONS: OperationDef[] = [
           "type": "string"
         },
         "description": "Comma-separated client ids; keeps only contracts billed to any of them."
+      },
+      {
+        "name": "StatusIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated status ids: 1 Active, 2 Expired, 3 Archived. Omitted returns Active and Expired (archived excluded). Any other id is a 400."
       }
     ],
     "response": "json",
@@ -2339,6 +2431,621 @@ export const OPERATIONS: OperationDef[] = [
     "tool": "gorelo_contracts",
     "action": "list",
     "tier": "read"
+  },
+  {
+    "operationId": "get_v1_deletions",
+    "method": "GET",
+    "path": "/v1/deletions",
+    "summary": "Lists records that have been deleted, so a copy kept in sync through this API can remove them. Results are sorted by `DeletedOn` ascending, then type id, then id, using cursor pagination.",
+    "params": [
+      {
+        "name": "TypeIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Required. Comma-separated record types to include: 1 Client, 2 Contact, 3 Contract, 4 Ticket, 5 Item, 6 Invoice, 7 Custom asset, 8 Project, 9 Task. Up to 10 values; any other value is a 400."
+      },
+      {
+        "name": "Since",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "ISO-8601 UTC timestamp; keeps only deletions at or after it."
+      }
+    ],
+    "response": "json",
+    "paginated": true,
+    "tool": "gorelo_deletions",
+    "action": "list",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_documents_documentId",
+    "method": "GET",
+    "path": "/v1/documents/{documentId}",
+    "summary": "Gets a single document.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents",
+    "action": "get",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_documents_documentId_versions_versionId",
+    "method": "GET",
+    "path": "/v1/documents/{documentId}/versions/{versionId}",
+    "summary": "Gets one version of a document, with its body and attachments.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document identifier."
+      },
+      {
+        "name": "versionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Version identifier; it must be one of this document's."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents",
+    "action": "get_version",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_documents",
+    "method": "GET",
+    "path": "/v1/documents",
+    "summary": "Lists the service provider's documents.",
+    "params": [
+      {
+        "name": "StatusIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated status ids: 1 Active, 2 Archived. Omitted returns Active only (archived excluded). Any other id is a 400."
+      },
+      {
+        "name": "ClientIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated client ids. Returns only those clients' documents, never internal ones."
+      },
+      {
+        "name": "IsInternal",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        },
+        "description": "`true` for internal documents only, `false` for client documents only."
+      },
+      {
+        "name": "ParentDocumentId",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Only the documents nested directly under this document."
+      },
+      {
+        "name": "IsStarred",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        },
+        "description": "Keeps only starred (`true`) or unstarred (`false`) documents."
+      },
+      {
+        "name": "IsPublishedToPortal",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        },
+        "description": "Keeps only documents published (`true`) or not published (`false`) to the client portal."
+      },
+      {
+        "name": "IsPublicLinkEnabled",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        },
+        "description": "Keeps only documents whose public link is on (`true`) or off (`false`)."
+      },
+      {
+        "name": "Query",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Keyword matched against the title. Max 200 characters."
+      },
+      {
+        "name": "UpdatedSince",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "Keeps only documents updated at or after this UTC instant (ISO 8601). Documents never updated are left out."
+      },
+      {
+        "name": "UpdatedBefore",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "Keeps only documents updated strictly before this UTC instant."
+      },
+      {
+        "name": "CreatedSince",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "Keeps only documents created at or after this UTC instant. Restoring a version resets a document's created time."
+      },
+      {
+        "name": "CreatedBefore",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "Keeps only documents created strictly before this UTC instant."
+      },
+      {
+        "name": "SortBy",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "default": "createdOn"
+        },
+        "description": "Sort field: `createdOn` (default) or `updatedOn`."
+      },
+      {
+        "name": "SortOrder",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "default": "desc"
+        },
+        "description": "Sort direction: `asc` or `desc` (default)."
+      }
+    ],
+    "response": "json",
+    "paginated": true,
+    "tool": "gorelo_documents",
+    "action": "list",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_documents_documentId_related-items",
+    "method": "GET",
+    "path": "/v1/documents/{documentId}/related-items",
+    "summary": "Lists the records a document is related to.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents",
+    "action": "list_related_items",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_documents_documentId_versions",
+    "method": "GET",
+    "path": "/v1/documents/{documentId}/versions",
+    "summary": "Lists a document's versions, newest first.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": true,
+    "tool": "gorelo_documents",
+    "action": "list_versions",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_documents_documentId_pdf",
+    "method": "GET",
+    "path": "/v1/documents/{documentId}/pdf",
+    "summary": "Downloads a document as a PDF.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document identifier."
+      }
+    ],
+    "response": "binary",
+    "paginated": false,
+    "tool": "gorelo_documents",
+    "action": "pdf",
+    "tier": "read"
+  },
+  {
+    "operationId": "post_v1_documents_documentId_related-items",
+    "method": "POST",
+    "path": "/v1/documents/{documentId}/related-items",
+    "summary": "Relates a document to other records.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document identifier."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents_write",
+    "action": "add_related_items",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "RelatedItems": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "ItemId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The record's id, as text: a Guid for a document, custom asset or device, a number for a contact."
+                },
+                "ItemTypeId": {
+                  "type": "integer",
+                  "description": "1 Document, 2 Custom asset, 3 Contact, 4 Device, 5 Structured document, 6 Password."
+                }
+              },
+              "additionalProperties": false,
+              "description": "One record to link."
+            },
+            "description": "The records to link, 1 to 100 of them. A record already linked is skipped."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Links a document to other records."
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_documents",
+    "method": "POST",
+    "path": "/v1/documents",
+    "summary": "Creates a document.",
+    "params": [],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents_write",
+    "action": "create",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Title. Required, max 200 characters."
+          },
+          "Body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The body, as HTML. Must not embed images as `data:` URLs - upload them first."
+          },
+          "ParentDocumentId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The document to nest this one under; omit or null for a top-level document.",
+            "format": "uuid"
+          },
+          "ClientId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The client the document belongs to; omit or null for an internal document. Under a parent the document takes the parent's client, and a different value here is rejected."
+          }
+        },
+        "additionalProperties": false,
+        "description": "A new document."
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_documents_documentId_duplicate",
+    "method": "POST",
+    "path": "/v1/documents/{documentId}/duplicate",
+    "summary": "Duplicates a document.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document to duplicate."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents_write",
+    "action": "duplicate",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The duplicate's title, max 200 characters; defaults to the original title followed by \" clone\"."
+          }
+        },
+        "additionalProperties": false,
+        "description": "A duplicate of a document. The body may be omitted entirely."
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_documents_documentId_versions_versionId_restore",
+    "method": "POST",
+    "path": "/v1/documents/{documentId}/versions/{versionId}/restore",
+    "summary": "Makes an earlier version the current one.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document identifier."
+      },
+      {
+        "name": "versionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Version to restore; it must be one of this document's."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents_write",
+    "action": "restore_version",
+    "tier": "write"
+  },
+  {
+    "operationId": "patch_v1_documents_documentId",
+    "method": "PATCH",
+    "path": "/v1/documents/{documentId}",
+    "summary": "Updates a document.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Document to update."
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents_write",
+    "action": "update",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Title, max 200 characters. Cannot be blank."
+          },
+          "Body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The body, as HTML. A changed title or body is saved as a new version."
+          },
+          "IsStarred": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Star or unstar. A star is shared by everyone in the account."
+          },
+          "PublicLinkEnabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Turn the public link on or off."
+          },
+          "PublishToPortalEnabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Publish to or withdraw from the client portal."
+          },
+          "AlternateName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name shown in the client portal, max 200 characters. An empty string clears it."
+          },
+          "StatusId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "2 archives the document and the documents directly under it; 1 restores an archived document to the top level."
+          },
+          "Attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "Name": {
+                  "type": "string",
+                  "description": "File name."
+                },
+                "Url": {
+                  "type": "string",
+                  "description": "Temporary secure download link. Expires."
+                }
+              },
+              "additionalProperties": false,
+              "description": "A file attached to a comment, and what the upload endpoint returns."
+            },
+            "description": "The whole attachment list, replacing the current one; an empty array removes every attachment. Each url must be one returned by `POST /v1/attachments`."
+          },
+          "Move": {
+            "type": "object",
+            "properties": {
+              "ParentDocumentId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The new parent; null moves the document to the top level.",
+                "format": "uuid"
+              },
+              "ClientId": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "The client, when moving to the top level; null there means internal. Under a parent the document takes the parent's client, and a different value here is rejected."
+              }
+            },
+            "additionalProperties": false,
+            "description": "Where to move a document."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Partial update of a document. Every field is optional; an omitted or null field is left as it is. Clearing, per field: `AlternateName` clears with an empty string; `Attachments` clears with an empty array; `Title` cannot be cleared."
+      }
+    }
   },
   {
     "operationId": "get_v1_forms",
@@ -2363,7 +3070,7 @@ export const OPERATIONS: OperationDef[] = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated form status ids: Active=1, Archived=2. Defaults to Active."
+        "description": "Comma-separated form status ids: 1 Active, 2 Archived. Omitted returns Active only (archived excluded). Any other id is a 400."
       },
       {
         "name": "GroupIds",
@@ -2535,7 +3242,7 @@ export const OPERATIONS: OperationDef[] = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated status ids (1 Draft, 3 Paid, 4 Void, 5 Approved)."
+        "description": "Comma-separated status ids: 1 Draft, 2 Submitted, 3 Paid, 4 Void, 5 Approved. Any other id is a 400. Omitted returns every status; deleted invoices are never listed."
       },
       {
         "name": "ContractIds",
@@ -2933,7 +3640,7 @@ export const OPERATIONS: OperationDef[] = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated status ids (1 Active, 2 Archived)."
+        "description": "Comma-separated status ids: 1 Active, 2 Archived. Omitted returns Active only (archived excluded). Any other id is a 400."
       },
       {
         "name": "Query",
@@ -3008,7 +3715,17 @@ export const OPERATIONS: OperationDef[] = [
     "method": "GET",
     "path": "/v1/organization/users",
     "summary": "Lists users (technicians) for the service provider using cursor pagination. Results are sorted by user id ascending (oldest first).",
-    "params": [],
+    "params": [
+      {
+        "name": "StatusIds",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated status ids: Pending=1, Active=2, Disabled=3. Omit for Pending and Active - disabled users are listed only when 3 is named. Any other id is a 400."
+      }
+    ],
     "response": "json",
     "paginated": true,
     "tool": "gorelo_organization",
@@ -3186,7 +3903,7 @@ export const OPERATIONS: OperationDef[] = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated status ids: NotStarted=1, WorkingOnIt=2, OnHold=3, Done=4."
+        "description": "Comma-separated task status ids: 1 Not started, 2 Working on it, 3 On hold, 4 Done. Any other id is a 400. Omitted returns every status."
       },
       {
         "name": "AssigneeIds",
@@ -3422,7 +4139,7 @@ export const OPERATIONS: OperationDef[] = [
           },
           "StatusId": {
             "type": "integer",
-            "description": "Task status: NotStarted=1, WorkingOnIt=2, OnHold=3, Done=4. Defaults to NotStarted."
+            "description": "Task status: 1 Not started, 2 Working on it, 3 On hold, 4 Done. Defaults to 1 Not started."
           },
           "DueDate": {
             "type": [
@@ -3517,13 +4234,6 @@ export const OPERATIONS: OperationDef[] = [
             "minLength": 1,
             "type": "string",
             "description": "The comment body, as HTML. Required."
-          },
-          "BodyText": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "The same body as markdown, if you keep one."
           },
           "Attachments": {
             "type": [
@@ -3753,7 +4463,7 @@ export const OPERATIONS: OperationDef[] = [
               "integer",
               "null"
             ],
-            "description": "New status: NotStarted=1, WorkingOnIt=2, OnHold=3, Done=4."
+            "description": "New status: 1 Not started, 2 Working on it, 3 On hold, 4 Done."
           },
           "StatusReason": {
             "type": [
@@ -3975,7 +4685,7 @@ export const OPERATIONS: OperationDef[] = [
         "schema": {
           "type": "string"
         },
-        "description": "Comma-separated project status ids: NotStarted=1, InProgress=2, OnHold=3, Completed=4, Closed=5."
+        "description": "Comma-separated project status ids: 1 Not started, 2 In progress, 3 On hold, 4 Completed, 5 Closed. Any other id is a 400. Omitted returns every status."
       },
       {
         "name": "ClientIds",
@@ -4342,13 +5052,6 @@ export const OPERATIONS: OperationDef[] = [
             "type": "string",
             "description": "The comment body, as HTML. Required."
           },
-          "BodyText": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "The same body as markdown, if you keep one."
-          },
           "ConversationTypeId": {
             "type": "integer",
             "description": "Kind of conversation: `1` Public or `2` Private. **Defaults to 2 (Private)** - a project comment posted by an integration is an internal note unless it says otherwise. A project has no side conversations or approvals of its own, so `3` and `4` are rejected rather than silently written as something else."
@@ -4591,7 +5294,7 @@ export const OPERATIONS: OperationDef[] = [
               "integer",
               "null"
             ],
-            "description": "New status: Not Started=1, In Progress=2, On Hold=3, Completed=4, Closed=5. Completed is normally reached automatically once every task is Done; Closed is the manual end state and stamps `ClosedOn`. Moving a Closed project to any other status clears it."
+            "description": "New status: 1 Not started, 2 In progress, 3 On hold, 4 Completed, 5 Closed. Completed is normally reached automatically once every task is Done; Closed is the manual end state and stamps `ClosedOn`. Moving a Closed project to any other status clears it."
           },
           "StatusReason": {
             "type": [
@@ -4713,7 +5416,7 @@ export const OPERATIONS: OperationDef[] = [
     "operationId": "get_v1_tickets_ticketId_approvals_approvalId",
     "method": "GET",
     "path": "/v1/tickets/{ticketId}/approvals/{approvalId}",
-    "summary": "Gets a single approval on a ticket, with its approvers. This is where approval status lives — the conversations list stays lean and does not carry it. `Status` is worked out from the approvers: Disapproved as soon as anyone disapproves, Approved once everyone approves, Pending otherwise.",
+    "summary": "Gets a single approval on a ticket, with its approvers. This is where approval status lives — the conversations list stays lean and does not carry it. `Status` is worked out from the approvers: Denied as soon as anyone denies, Approved once everyone approves, Pending otherwise.",
     "params": [
       {
         "name": "ticketId",

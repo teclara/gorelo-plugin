@@ -23,7 +23,7 @@ const CLIENT_TEXT_LIMIT = 2048;
  * and 108.0k. Raise a bound only after looking at what grew. 2026-10-05 spec: +8.3k write, mostly
  * longer field descriptions on project and project-task writes, plus the new gorelo_alerts.list.
  */
-const MAX_TOOLS_LIST_CHARS: Record<Tier, number> = { read: 31_000, write: 81_000, full: 95_000 };
+const MAX_TOOLS_LIST_CHARS: Record<Tier, number> = { read: 34_000, write: 88_000, full: 103_000 };
 
 /** A schema with the parts the advertised copy is allowed to leave out removed. */
 function shape(schema: unknown): unknown {

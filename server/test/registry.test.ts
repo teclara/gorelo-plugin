@@ -113,6 +113,7 @@ describe("listTools", () => {
     expect(admin.annotations.destructiveHint).toBe(true);
     expect((admin.inputSchema.properties as any).action.enum).toEqual([
       "api_keys_create",
+      "documents_remove_related_item",
       "invoices_create",
       "items_create",
       "items_update",
