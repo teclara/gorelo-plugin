@@ -50,6 +50,12 @@ export interface Override {
 /** Keyed by Gorelo operationId. */
 export const OVERRIDES: Record<string, Override> = {
   get_v1_invoices_invoiceId_pdf: { action: "pdf" },
+  get_v1_documents_documentId_pdf: { action: "pdf" },
+  get_v1_documents_documentId_versions_versionId: { action: "get_version" },
+  post_v1_documents_documentId_duplicate: { action: "duplicate" },
+  post_v1_documents_documentId_versions_versionId_restore: { action: "restore_version" },
+  "post_v1_documents_documentId_related-items": { action: "add_related_items" },
+  "delete_v1_documents_documentId_related-items_relatedItemId": { action: "remove_related_item" },
   post_v1_attachments: { action: "upload" },
   // Billing tools default non-GET ops to full, so draft create must opt into write explicitly.
   post_v1_invoices: { tier: "write", forceBody: { StatusId: 1 }, adminCopy: true },

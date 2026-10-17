@@ -33,6 +33,35 @@ export const OPERATIONS: OperationDef[] = [
     }
   },
   {
+    "operationId": "delete_v1_documents_documentId_related-items_relatedItemId",
+    "method": "DELETE",
+    "path": "/v1/documents/{documentId}/related-items/{relatedItemId}",
+    "summary": "Removes one related item from a document.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      {
+        "name": "relatedItemId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_admin",
+    "action": "documents_remove_related_item",
+    "tier": "full"
+  },
+  {
     "operationId": "post_v1_invoices",
     "method": "POST",
     "path": "/v1/invoices",
@@ -207,6 +236,142 @@ export const OPERATIONS: OperationDef[] = [
     "tool": "gorelo_billing_reference",
     "action": "list_work_types",
     "tier": "read"
+  },
+  {
+    "operationId": "get_v1_documents_documentId_versions_versionId",
+    "method": "GET",
+    "path": "/v1/documents/{documentId}/versions/{versionId}",
+    "summary": "Gets one version of a document.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      {
+        "name": "versionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents",
+    "action": "get_version",
+    "tier": "read"
+  },
+  {
+    "operationId": "get_v1_documents_documentId_pdf",
+    "method": "GET",
+    "path": "/v1/documents/{documentId}/pdf",
+    "summary": "Downloads a document as a PDF.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    ],
+    "response": "binary",
+    "paginated": false,
+    "tool": "gorelo_documents",
+    "action": "pdf",
+    "tier": "read"
+  },
+  {
+    "operationId": "post_v1_documents_documentId_related-items",
+    "method": "POST",
+    "path": "/v1/documents/{documentId}/related-items",
+    "summary": "Relates a document to other records.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents_write",
+    "action": "add_related_items",
+    "tier": "write",
+    "body": {
+      "contentType": "application/json",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "Items": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "operationId": "post_v1_documents_documentId_duplicate",
+    "method": "POST",
+    "path": "/v1/documents/{documentId}/duplicate",
+    "summary": "Duplicates a document.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents_write",
+    "action": "duplicate",
+    "tier": "write"
+  },
+  {
+    "operationId": "post_v1_documents_documentId_versions_versionId_restore",
+    "method": "POST",
+    "path": "/v1/documents/{documentId}/versions/{versionId}/restore",
+    "summary": "Makes an earlier version the current one.",
+    "params": [
+      {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      {
+        "name": "versionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    ],
+    "response": "json",
+    "paginated": false,
+    "tool": "gorelo_documents_write",
+    "action": "restore_version",
+    "tier": "write"
   },
   {
     "operationId": "get_v1_invoices_invoiceId_pdf",
